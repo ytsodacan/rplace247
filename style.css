@@ -1,0 +1,110 @@
+body {
+    margin: 0;
+    overflow: hidden; /* Prevent body scroll, let canvas handle scrolling via pan/zoom */
+    background-color: #f0f0f0; /* Light gray background for better contrast with grid */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333; /* Dark text for contrast on light background */
+}
+
+#rplaceCanvas {
+    display: block; /* Remove extra space below canvas */
+    background-color: #2b2b2b; /* A slightly darker background for the canvas itself */
+    cursor: grab; /* Indicate draggable */
+    position: absolute; /* Take canvas out of flow, let JS position it */
+    top: 0;
+    left: 0;
+    z-index: 1; /* Ensure canvas is above other elements if any */
+}
+
+.bottom-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #333; /* Darker background for the bar */
+    color: #eee;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box; /* Include padding in width */
+    z-index: 10; /* Ensure bar is above canvas */
+    border-top: 1px solid #555;
+}
+
+.controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.controls label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.controls input[type="color"] {
+    border: none;
+    padding: 0;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    background: none;
+    -webkit-appearance: none;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+    top: 2px; /* Slight adjustment for alignment */
+}
+
+/* For better color picker appearance across browsers */
+.controls input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.controls input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 5px;
+}
+
+.controls button {
+    background-color: #007bff; /* Primary blue button */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.controls button:hover {
+    background-color: #0056b3;
+}
+
+.zoom-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.zoom-controls button {
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    font-size: 1.2em;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.selected-coords {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #9aff9a; /* Light green for coordinates */
+}
+
+/* Cursor change when dragging */
+.grabbing {
+    cursor: grabbing !important;
+}
