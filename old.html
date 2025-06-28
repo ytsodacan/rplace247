@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neurosama/Place</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app-container">
+        <div id="left-panel">
+            <h3>Live View</h3>
+            <canvas id="liveViewCanvas"></canvas>
+
+            <div class="pixel-chat-container">
+                <h3>Pixel Log</h3>
+                <div id="pixelChatLog">
+                    </div>
+            </div>
+        </div>
+        <div id="main-content">
+            <canvas id="rplaceCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="controls">
+            <label for="colorPicker">Color:</label>
+            <input type="color" id="colorPicker" value="#000000">
+            <button id="placePixelBtn">Place Pixel</button>
+        </div>
+        <div class="selected-coords">
+            Selected: <span id="selectedCoords">None</span>
+        </div>
+        <div class="zoom-controls">
+            <button id="zoomInBtn">+</button>
+            <button id="zoomOutBtn">-</button>
+        </div>
+        <b>made by <a href="https://github.com/ytsodacan">ytsodacan</a></b>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
