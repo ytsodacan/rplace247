@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DOM Elements (Color Picker & Buttons) ---
     const colorPicker = document.getElementById('colorPicker');
-    const customColorSwatch = document.getElementById('customColorSwatch');
+    const customColorSwatch = document.getElementById('customColorSwatch'); // Assuming you have this, if not, it will be null
     const placePixelBtn = document.getElementById('placePixelBtn');
     const selectedCoordsDisplay = document.getElementById('selectedCoords');
     const zoomInBtn = document.getElementById('zoomInBtn');
@@ -80,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
             canvas.width = mainContentDiv.clientWidth;
             canvas.height = mainContentDiv.clientHeight;
         } else {
+            // Fallback for cases where main-content might not be available or fully rendered yet
             const leftPanel = document.getElementById('left-panel');
             const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
             canvas.width = window.innerWidth - leftPanelWidth;
@@ -126,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error fetching grid:', error);
             alert('Could not connect to backend to get initial grid. Is your backend running?');
-            return Array(GRID_HEIGHT).fill(0).map(() => Array(GRID_WIDTH).fill('#1a1a1a')); // Fallback
+            return Array(GRID_HEIGHT).fill(0).map(() => Array(GRID_WIDTH).fill('#1a1a1a')); // Fallback to black grid
         }
     }
 
@@ -196,7 +197,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.save();
             ctx.translate(offsetX, offsetY);
             ctx.scale(scale, scale);
-            ctx.strokeStyle = 'var(--gd-highlight-color)';
+            ctx.strokeStyle = 'var(--gd-highlight-color, orange)'; // Default to orange if CSS var not found
             // Line width needs to be adjusted by inverse scale to appear consistent regardless of zoom
             ctx.lineWidth = 3 / scale; 
             ctx.strokeRect(selectedPixel.x * PIXEL_SIZE, selectedPixel.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
@@ -221,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
-                const color = gridData[y] && gridData[y][x] !== undefined ? gridData[y][x] : '#000000';
+                const color = gridData[y] && gridData[y][x] !== undefined ? gridData[y][x] : '#000000'; // Default to black
                 const [r, g, b, a] = hexToRgba(color);
 
                 // Calculate target pixel on live view canvas (it's 1x1 here)
@@ -250,7 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const logEntry = document.createElement('p');
-        logEntry.innerHTML = `(<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
+        // Basic check for string x,y for "System" messages
+        const displayX = typeof x === 'number' ? x : 'System';
+        const displayY = typeof y === 'number' ? y : (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting…' || y.startsWith('Connection Error')) ? '' : y;
+
+        logEntry.innerHTML = `(<span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
         pixelChatLog.appendChild(logEntry);
 
         pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
@@ -259,13 +264,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Event Handlers (Mouse & Touch) ---
 
+    // Corrected getGridCoordsFromScreen: relies solely on canvas.getBoundingClientRect()
+    // and inverse transforms, assuming no direct border/padding on canvas itself.
     function getGridCoordsFromScreen(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
+        
+        // These calculations should be correct if rect.left/top correctly represent the
+        // top-left of the canvas's drawing area in screen coordinates.
         const canvasX = clientX - rect.left;
         const canvasY = clientY - rect.top;
 
         // Apply inverse of current offset and scale
-        // These calculations should be correct if drawGrid uses ctx.translate/scale
         const worldX = (canvasX - offsetX) / scale;
         const worldY = (canvasY - offsetY) / scale;
 
@@ -275,12 +284,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log('--- getGridCoordsFromScreen Debug ---');
         console.log(`Input Screen: (${clientX}, ${clientY})`);
-        console.log(`Canvas Local (relative to canvas top-left): (${canvasX}, ${canvasY})`);
+        console.log(`Canvas Bounding Rect: left=${rect.left.toFixed(2)}, top=${rect.top.toFixed(2)}, width=${rect.width.toFixed(2)}, height=${rect.height.toFixed(2)}`); // Added width/height for more context
+        console.log(`Canvas Local (relative to canvas top-left): (${canvasX.toFixed(2)}, ${canvasY.toFixed(2)})`);
         console.log(`Current Transform: offsetX=${offsetX.toFixed(2)}, offsetY=${offsetY.toFixed(2)}, scale=${scale.toFixed(2)}`);
         console.log(`World (after inverse transform): X=${worldX.toFixed(2)}, Y=${worldY.toFixed(2)}`);
         console.log(`Grid Coords (final result): (${gridX}, ${gridY})`);
         console.log('------------------------------------');
-
 
         if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT) {
             return { x: gridX, y: gridY };
@@ -332,6 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         offsetX += dx;
         offsetY += dy;
+
+        // Round offsets to nearest integer pixel to help alignment
+        offsetX = Math.round(offsetX); 
+        offsetY = Math.round(offsetY);
 
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
@@ -387,6 +400,10 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetX += dx;
             offsetY += dy;
 
+            // Round offsets to nearest integer pixel
+            offsetX = Math.round(offsetX); 
+            offsetY = Math.round(offsetY);
+
             lastTouchX = event.touches[0].clientX;
             lastTouchY = event.touches[0].clientY;
 
@@ -403,14 +420,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const touchCenterY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
 
             const rect = canvas.getBoundingClientRect();
-            const canvasX = touchCenterX - rect.left;
-            const canvasY = touchCenterY - rect.top;
+            const mouseCanvasX = touchCenterX - rect.left;
+            const mouseCanvasY = touchCenterY - rect.top;
 
-            const mouseWorldX = (canvasX - offsetX) / oldScale;
-            const mouseWorldY = (canvasY - offsetY) / oldScale;
+            const mouseWorldX = (mouseCanvasX - offsetX) / oldScale;
+            const mouseWorldY = (mouseCanvasY - offsetY) / oldScale;
 
-            offsetX = canvasX - mouseWorldX * scale;
-            offsetY = canvasY - mouseWorldY * scale;
+            offsetX = mouseCanvasX - mouseWorldX * scale;
+            offsetY = mouseCanvasY - mouseWorldY * scale;
+
+            // Round offsets to nearest integer pixel
+            offsetX = Math.round(offsetX); 
+            offsetY = Math.round(offsetY);
 
             initialPinchDistance = currentPinchDistance;
             drawGrid(); // Redraw main canvas
@@ -476,7 +497,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Adjust offsetX and offsetY to keep the mouse point fixed after zoom
         offsetX = mouseCanvasX - mouseWorldX * scale;
-        offsetY = mouseCanvasY - mouseWorldY * scale;
+        offsetY = mouseCanvasY - mouseWorldY * scale; // Corrected: was canvasY, now mouseCanvasY
+
+        // Round offsets to nearest integer pixel
+        offsetX = Math.round(offsetX);
+        offsetY = Math.round(offsetY);
 
         drawGrid(); // Redraw main canvas
         // console.log(`DEBUG: Mouse Wheel - Zoom. deltaY:${event.deltaY}, new scale:${scale}, offsetX:${offsetX.toFixed(2)}, offsetY:${offsetY.toFixed(2)}`);
@@ -513,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.createElement('button');
         btn.id = 'reconnectButton';
         btn.textContent = 'Reconnect';
-        btn.style.display = 'none';
+        btn.style.display = 'none'; // Initially hidden
         btn.style.padding = '8px 15px';
         btn.style.marginLeft = '8px';
         btn.style.borderRadius = '5px';
@@ -521,6 +546,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.style.cursor = 'pointer';
         btn.style.backgroundColor = '#4caf50';
         btn.style.color = '#fff';
+        btn.style.border = 'none'; // Ensure no border from Tailwind is overriding
 
         btn.addEventListener('click', () => {
             if (!socket) return;
@@ -529,15 +555,19 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.connect();
         });
 
+        // Append to the same div as placePixelBtn for consistent layout
         if (placePixelBtn && placePixelBtn.parentElement) {
             placePixelBtn.parentElement.appendChild(btn);
         } else {
+            // Fallback if the footer structure is unexpected
             document.body.appendChild(btn);
         }
         return btn;
     }
 
     function setupWebSocket() {
+        // `reconnection: false` means we handle reconnection manually via the button.
+        // If you want automatic reconnection, remove this option or set to true.
         socket = io(WEBSOCKET_URL, { reconnection: false });
 
         socket.on('connect', () => {
@@ -549,7 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         socket.on('pixelUpdate', (data) => {
             const { x, y, color } = data;
-            // console.log(`Received real-time update: Pixel at (${x}, ${y}) changed to ${color}`);
+            // console.log(`Received real-time update: Pixel at (${x}, (${y})) changed to ${color}`);
             
             // 1. Update global gridData
             if (gridData[y] && gridData[y][x] !== undefined) {
@@ -635,6 +665,10 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetX = (canvas.width - (gridPixelWidth * scale)) / 2;
         offsetY = (canvas.height - (gridPixelHeight * scale)) / 2;
 
+        // Round initial offsets too
+        offsetX = Math.round(offsetX);
+        offsetY = Math.round(offsetY);
+
         // Set image smoothing on the main canvas context to false for crisp pixels when scaled
         ctx.imageSmoothingEnabled = false;
 
@@ -653,10 +687,24 @@ document.addEventListener('DOMContentLoaded', () => {
         canvas.addEventListener('touchcancel', handleTouchEnd); // Handle touches ending unexpectedly
 
         colorPicker.addEventListener('input', handleColorChange);
-        customColorSwatch.addEventListener('click', () => { colorPicker.click(); });
+        if (customColorSwatch) { // Check if element exists before adding listener
+            customColorSwatch.addEventListener('click', () => { colorPicker.click(); });
+        }
         placePixelBtn.addEventListener('click', handlePlacePixelClick);
-        zoomInBtn.addEventListener('click', () => handleMouseWheel({ deltaY: -1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
-        zoomOutBtn.addEventListener('click', () => handleMouseWheel({ deltaY: 1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
+        
+        // When simulating wheel, use mouseCanvasX/Y as the center of zoom
+        zoomInBtn.addEventListener('click', () => handleMouseWheel({ 
+            deltaY: -1, 
+            clientX: canvas.getBoundingClientRect().left + canvas.width / 2, // Center of canvas in screen coords
+            clientY: canvas.getBoundingClientRect().top + canvas.height / 2, // Center of canvas in screen coords
+            preventDefault: () => {} 
+        }));
+        zoomOutBtn.addEventListener('click', () => handleMouseWheel({ 
+            deltaY: 1, 
+            clientX: canvas.getBoundingClientRect().left + canvas.width / 2, 
+            clientY: canvas.getBoundingClientRect().top + canvas.height / 2, 
+            preventDefault: () => {} 
+        }));
 
         const reconnectButton = createReconnectButton();
         
