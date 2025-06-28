@@ -26,9 +26,6 @@ const ctx = canvas.getContext('2d');
 const highlightCanvas = document.getElementById('neuroHighlightCanvas');
 const highlightCtx = highlightCanvas.getContext('2d');
 
-highlightCanvas.style.pointerEvents = 'none';
-
-
 // live view DOM refs
 const liveViewCanvas = document.getElementById('liveViewCanvas');
 const liveViewCtx = liveViewCanvas.getContext('2d');
@@ -229,7 +226,7 @@ async function placePixel(x, y, color) {
         console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
     } catch (error) {
         console.error('Error sending pixel update:', error);
-        alert(`Failed to place pixel: ${error.message}`);
+        addPixelErrorLogEntry(x, y, color, 'Connection failure');
     }
 }
 
@@ -267,6 +264,27 @@ function drawGrid(grid) {
 
     let pixelsDrawnCount = 0;
 
+    // draw grid lines for empty areas
+    ctx.strokeStyle = 'rgba(128, 128, 128, 0.2)'; // light gray, semi-transparent
+    ctx.lineWidth = 0.5 / scale; // thin lines that scale properly
+    
+    // vertical lines
+    for (let x = startCol; x <= endCol + 1; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * PIXEL_SIZE, startRow * PIXEL_SIZE);
+        ctx.lineTo(x * PIXEL_SIZE, (endRow + 1) * PIXEL_SIZE);
+        ctx.stroke();
+    }
+    
+    // horizontal lines  
+    for (let y = startRow; y <= endRow + 1; y++) {
+        ctx.beginPath();
+        ctx.moveTo(startCol * PIXEL_SIZE, y * PIXEL_SIZE);
+        ctx.lineTo((endCol + 1) * PIXEL_SIZE, y * PIXEL_SIZE);
+        ctx.stroke();
+    }
+
+    // draw actual pixels on top of grid
     for (let y = startRow; y <= endRow; y++) {
         const row = grid[y];
         if (!row) continue;
@@ -356,7 +374,42 @@ function addPixelLogEntry(x, y, color) {
     }
 
     const logEntry = document.createElement('p');
-    logEntry.innerHTML = `(<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
+    logEntry.innerHTML = `(<span class="log-coords">${x}</span>, <span class="log-coords">${y}</span>) set to <span class="log-color" style="color: ${color}; font-weight: bold;">${color}</span>`;
+    pixelChatLog.appendChild(logEntry);
+
+    pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
+}
+
+// system messages (connections, etc.)
+function addSystemLogEntry(message, color = '#ffff00') {
+    if (!pixelChatLog) {
+        console.error("Pixel chat log element not found.");
+        return;
+    }
+
+    // Map colors to CSS classes
+    let cssClass = 'log-warning'; // default yellow
+    if (color === '#00ff00') cssClass = 'log-success';
+    else if (color === '#ff0000') cssClass = 'log-danger';
+    else if (color === '#ff9900') cssClass = 'log-error';
+    else if (color === '#ffff00') cssClass = 'log-warning';
+
+    const logEntry = document.createElement('p');
+    logEntry.innerHTML = `<span class="${cssClass}">${message}</span>`;
+    pixelChatLog.appendChild(logEntry);
+
+    pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
+}
+
+// pixel placement errors with coordinates
+function addPixelErrorLogEntry(x, y, color, errorMessage) {
+    if (!pixelChatLog) {
+        console.error("Pixel chat log element not found.");
+        return;
+    }
+
+    const logEntry = document.createElement('p');
+    logEntry.innerHTML = `<span class="log-info">${errorMessage}, failed to place <span class="log-color" style="color: ${color}; font-weight: bold;">${color}</span> at (<span class="log-coords">${x}</span>, <span class="log-coords">${y}</span>)</span>`;
     pixelChatLog.appendChild(logEntry);
 
     pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
@@ -622,27 +675,23 @@ function updateSelectedCoordsDisplay() {
 function createReconnectButton() {
     const btn = document.createElement('button');
     btn.id = 'reconnectButton';
+    btn.className = 'reconnect-button';
     btn.textContent = 'Reconnect';
-    btn.style.display = 'none'; 
-    btn.style.padding = '8px 15px';
-    btn.style.marginLeft = '8px';
-    btn.style.borderRadius = '5px';
-    btn.style.fontWeight = 'bold';
-    btn.style.cursor = 'pointer';
-    btn.style.backgroundColor = '#4caf50';
-    btn.style.color = '#fff';
 
     btn.addEventListener('click', () => {
         if (!socket) return;
-        addPixelLogEntry('System', 'Reconnecting…', '#ffff00');
+        addSystemLogEntry('Reconnecting…', '#ffff00');
         btn.disabled = true; // no reconnect spam
         socket.connect(); 
     });
 
-    if (placePixelBtn && placePixelBtn.parentElement) {
+    const leftPanelControls = document.getElementById('leftPanelControls');
+    if (leftPanelControls) {
+        leftPanelControls.appendChild(btn);
+    } else if (placePixelBtn && placePixelBtn.parentElement) {
         placePixelBtn.parentElement.appendChild(btn);
     } else {
-        document.body.appendChild(btn); 
+        document.body.appendChild(btn);
     }
 
     return btn;
@@ -655,8 +704,8 @@ function setupWebSocket() {
 
     socket.on('connect', () => {
         console.log('Connected to backend');
-        addPixelLogEntry('System', 'Connected', '#00ff00');
-        reconnectButton.style.display = 'none';
+        addSystemLogEntry('Connected', '#00ff00');
+        reconnectButton.classList.remove('show');
         reconnectButton.disabled = false;
     });
 
@@ -668,15 +717,15 @@ function setupWebSocket() {
     socket.on('disconnect', () => {
         console.log('Disconnected from backend. Pausing refresh.');
         alert('Backend unavailable. Press the reconnect button to retry.');
-        addPixelLogEntry('System', 'Disconnected', '#ff0000');
-        reconnectButton.style.display = 'inline-block';
+        addSystemLogEntry('Disconnected', '#ff0000');
+        reconnectButton.classList.add('show');
     });
 
     socket.on('connect_error', (error) => {
         console.error('Backend connection error:', error);
         alert('Backend unavailable. Press the reconnect button to retry.');
-        addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900');
-        reconnectButton.style.display = 'inline-block';
+        addSystemLogEntry(`Connection Error: ${error.message}`, '#ff9900');
+        reconnectButton.classList.add('show');
     });
 }
 
@@ -768,3 +817,50 @@ function tick() {
 
     requestAnimationFrame(tick);
 }
+
+/* -------- Theme Toggle -------- */
+function toggleDark() {
+    document.documentElement.classList.toggle('dark');
+    const isDark = document.documentElement.classList.contains('dark');
+    
+    // Update button icon
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+        const icon = themeToggleBtn.querySelector('i');
+        if (icon) {
+            icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+        }
+    }
+    
+    try {
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    } catch (e) {
+        console.warn('Theme localStorage unavailable:', e);
+    }
+}
+
+// initialize persisted theme before other DOM operations
+(function initTheme() {
+    try {
+        const stored = localStorage.getItem('theme');
+        if (stored === 'dark') {
+            document.documentElement.classList.add('dark');
+        }
+    } catch(e) {
+        /* swallow */
+    }
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+        // Set initial icon based on current theme
+        const isDark = document.documentElement.classList.contains('dark');
+        const icon = themeToggleBtn.querySelector('i');
+        if (icon) {
+            icon.textContent = isDark ? 'light_mode' : 'dark_mode';
+        }
+        
+        themeToggleBtn.addEventListener('click', toggleDark);
+    }
+});
