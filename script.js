@@ -346,21 +346,8 @@ function drawLiveViewGrid(grid) {
     }
 }
 
-// rAF loop, only draws if dirty aka it has a change to draw
-function tick() {
-    if (dirty && gridData && gridData.length) {
-        drawGridBlit();
-        drawLiveViewGrid(gridData);
-        dirty = false;
-    }
-
-    if (highlightDirty) {
-        drawHighlightLayer();
-        highlightDirty = false;
-    }
-
-    requestAnimationFrame(tick);
-}
+// queue for incoming websocket pixel updates so we can batch apply them once per frame
+const pixelUpdateQueue = [];
 
 function addPixelLogEntry(x, y, color) {
     if (!pixelChatLog) {
@@ -375,6 +362,23 @@ function addPixelLogEntry(x, y, color) {
     pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
 }
 
+// new: apply queued websocket updates just before we render a new frame
+function flushPixelUpdates() {
+    if (pixelUpdateQueue.length === 0) return;
+
+    for (const { x, y, color } of pixelUpdateQueue) {
+        if (gridData[y] && gridData[y][x] !== undefined) {
+            gridData[y][x] = color;
+        }
+        // poke the off-screen canvas so the next blit is up to date
+        offCtx.fillStyle = color;
+        offCtx.fillRect(x, y, 1, 1);
+        addPixelLogEntry(x, y, color);
+    }
+
+    pixelUpdateQueue.length = 0; // clear the queue
+    dirty = true; // ensure a redraw happens for these updates
+}
 
 function getGridCoordsFromScreen(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -657,16 +661,8 @@ function setupWebSocket() {
     });
 
     socket.on('pixelUpdate', (data) => {
-        const { x, y, color } = data;
-        console.log(`Received real-time update: Pixel at (${x}, ${y}) changed to ${color}`);
-        if (gridData[y] && gridData[y][x] !== undefined) {
-            gridData[y][x] = color;
-        }
-        // poke the off-screen canvas so the next blit is up to date
-        offCtx.fillStyle = color;
-        offCtx.fillRect(x, y, 1, 1);
-        dirty = true; 
-        addPixelLogEntry(x, y, color);
+        // queue updates instead of applying them immediately; they'll be flushed once per frame
+        pixelUpdateQueue.push(data);
     });
 
     socket.on('disconnect', () => {
@@ -753,4 +749,22 @@ function drawGridBlit() {
 
     // mark highlight layer as dirty so it re-renders
     highlightDirty = true;
+}
+
+function tick() {
+    // first, apply any queued realtime updates so the frame uses the latest data
+    flushPixelUpdates();
+
+    if (dirty && gridData && gridData.length) {
+        drawGridBlit();
+        drawLiveViewGrid(gridData);
+        dirty = false;
+    }
+
+    if (highlightDirty) {
+        drawHighlightLayer();
+        highlightDirty = false;
+    }
+
+    requestAnimationFrame(tick);
 }
