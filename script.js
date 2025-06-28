@@ -41,6 +41,9 @@ let currentColor = colorPicker.value;
 let gridData = [];
 let selectedPixel = { x: null, y: null }; // Initialize to null explicitly for clarity
 
+// ADD BELOW: WebSocket instance reference so it can be reused by the reconnect button
+let socket = null; // Holds the Socket.IO client instance
+
 // --- Canvas Dimensions (Must match backend grid dimensions) ---
 const GRID_WIDTH = 500;
 const GRID_HEIGHT = 500;
@@ -478,37 +481,70 @@ function updateSelectedCoordsDisplay() {
 
 // --- WebSocket Setup ---
 
+function createReconnectButton() {
+    const btn = document.createElement('button');
+    btn.id = 'reconnectButton';
+    btn.textContent = 'Reconnect';
+    btn.style.display = 'none'; 
+    btn.style.padding = '8px 15px';
+    btn.style.marginLeft = '8px';
+    btn.style.borderRadius = '5px';
+    btn.style.fontWeight = 'bold';
+    btn.style.cursor = 'pointer';
+    btn.style.backgroundColor = '#4caf50';
+    btn.style.color = '#fff';
+
+    btn.addEventListener('click', () => {
+        if (!socket) return;
+        addPixelLogEntry('System', 'Reconnecting…', '#ffff00');
+        btn.disabled = true; //no more reconnect attempt spamming
+        socket.connect(); 
+    });
+
+    if (placePixelBtn && placePixelBtn.parentElement) {
+        placePixelBtn.parentElement.appendChild(btn);
+    } else {
+        document.body.appendChild(btn); 
+    }
+
+    return btn;
+}
+
+const reconnectButton = createReconnectButton();
+
 function setupWebSocket() {
-    const socket = io(WEBSOCKET_URL);
+    socket = io(WEBSOCKET_URL, { reconnection: false });
 
     socket.on('connect', () => {
-        console.log('Connected to WebSocket server!');
-        addPixelLogEntry('System', 'Connected', '#00ff00'); // Log connection
+        console.log('Connected to backend');
+        addPixelLogEntry('System', 'Connected', '#00ff00');
+        reconnectButton.style.display = 'none';
+        reconnectButton.disabled = false;
     });
 
     socket.on('pixelUpdate', (data) => {
         const { x, y, color } = data;
         console.log(`Received real-time update: Pixel at (${x}, ${y}) changed to ${color}`);
-
         if (gridData[y] && gridData[y][x] !== undefined) {
             gridData[y][x] = color;
         }
-
         drawGrid(gridData);
         drawLiveViewGrid(gridData);
-        addPixelLogEntry(x, y, color); // <--- IMPORTANT: Add to pixel log
+        addPixelLogEntry(x, y, color);
     });
 
     socket.on('disconnect', () => {
-        console.log('Disconnected from WebSocket server. Attempting to reconnect...');
-        alert('Disconnected from WebSocket server. Attempting to reconnect...');
-        addPixelLogEntry('System', 'Disconnected', '#ff0000'); // Log disconnection
+        console.log('Disconnected from backend. Pausing refresh.');
+        alert('Backend unavailable. Press the reconnect button to retry.');
+        addPixelLogEntry('System', 'Disconnected', '#ff0000');
+        reconnectButton.style.display = 'inline-block';
     });
 
     socket.on('connect_error', (error) => {
-        console.error('WebSocket connection error:', error);
-        alert(`WebSocket connection error: Unable to connect to the server. Please check your internet connection or try again later. (it may be down)`);
-        addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900'); // Log errors
+        console.error('Backend connection error:', error);
+        alert('Backend unavailable. Press the reconnect button to retry.');
+        addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900');
+        reconnectButton.style.display = 'inline-block';
     });
 }
 
