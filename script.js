@@ -1,41 +1,40 @@
-// --- Configuration ---
+// config stuff
 const BACKEND_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 
-const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
+const PIXEL_SIZE = 10; // how big is a pixel, in grid world
 
 // gate the log calls behind debug flag
-const DEBUG = false; // logs wreck performance if going off constantly
+const DEBUG = false; // logs will absolutely nuke perf if you let them just go
 if (!DEBUG) {
     console.log = () => {};
     console.trace = () => {};
 }
 
-// --- Live View Configuration ---
-const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // For a 500x500 grid, live view will be 250x250 pixels.
-const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
-const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
+// live view stuff, just for the little minimap
+const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // so 500x500 grid becomes 250x250
+const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // 250
+const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // 250
 
-const CLICK_THRESHOLD = 5; // Maximum pixel movement to still be considered a click/tap
+const CLICK_THRESHOLD = 5; // if you move less than this, it's a click/tap
 
 
-// --- DOM Elements (Main Canvas) ---
+// main canvas DOM refs
 const canvas = document.getElementById('rplaceCanvas');
 const ctx = canvas.getContext('2d');
 console.log('--- Debug: Main Canvas Context ---');
 console.log('Canvas element:', canvas);
 console.log('Canvas 2D context:', ctx);
 
-// --- DOM Elements (Live View Canvas) ---
+// live view DOM refs
 const liveViewCanvas = document.getElementById('liveViewCanvas');
 const liveViewCtx = liveViewCanvas.getContext('2d');
 console.log('--- Debug: Live View Canvas Context ---');
 console.log('Live View Canvas element:', liveViewCanvas);
 console.log('Live View Canvas 2D context:', liveViewCtx);
 
-// --- DOM Element for Pixel Chat Log ---
+// pixel chat log DOM ref
 const pixelChatLog = document.getElementById('pixelChatLog');
-
 
 const colorPicker = document.getElementById('colorPicker');
 const placePixelBtn = document.getElementById('placePixelBtn');
@@ -43,43 +42,42 @@ const selectedCoordsDisplay = document.getElementById('selectedCoords');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 
-// --- Global State ---
+// global state, nothing fancy
 let currentColor = colorPicker.value;
 let gridData = [];
-let selectedPixel = { x: null, y: null }; // Initialize to null explicitly for clarity
+let selectedPixel = { x: null, y: null }; // null means nothing picked
 
-let socket = null; // socket.io instance is global & held here
+let socket = null; // socket.io instance, just hanging out here
 
-// dirty flag = redraw needed next tick
-let dirty = true;
+let dirty = true; // if true, redraw next tick
 
-// --- Canvas Dimensions (Must match backend grid dimensions) ---
+// grid size, gotta match backend
 const GRID_WIDTH = 500;
 const GRID_HEIGHT = 500;
 
-// --- Viewport Transform State (for Main Canvas Pan & Zoom) ---
+// pan/zoom state for main canvas
 let scale = 1.0;
 let offsetX = 0;
 let offsetY = 0;
 
-// --- Mouse Interaction State ---
+// mouse state
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
-let lastClickX = 0; // Store mouse down X for click detection
-let lastClickY = 0; // Store mouse down Y for click detection
+let lastClickX = 0; // for click vs drag
+let lastClickY = 0;
 
-// --- Touch Interaction State ---
-let initialPinchDistance = null; // For pinch-to-zoom
-let lastTouchX = 0; // For single-touch drag
-let lastTouchY = 0; // For single-touch drag
-let touchStartX = 0; // Store touch start X for tap detection
-let touchStartY = 0; // Store touch start Y for tap detection
+// touch state
+let initialPinchDistance = null; // pinch-to-zoom
+let lastTouchX = 0; // single-finger drag
+let lastTouchY = 0;
+let touchStartX = 0; // for tap vs drag
+let touchStartY = 0;
 
 
-// --- Canvas Setup and Resizing ---
+// canvas sizing, tries to fit parent or falls back to window size
 function setCanvasSize() {
-    // Get dimensions of the parent container for rplaceCanvas, which is #main-content
+    // try to fit #main-content if it exists
     const mainContentDiv = document.getElementById('main-content');
     if (mainContentDiv) {
         canvas.width = mainContentDiv.clientWidth;
@@ -87,7 +85,7 @@ function setCanvasSize() {
         console.log('--- Debug: rplaceCanvas Size ---');
         console.log('Calculated rplaceCanvas Width:', canvas.width, 'Calculated rplaceCanvas Height:', canvas.height);
     } else {
-        // Fallback for initial load if main-content isn't fully rendered or found (less likely with DOMContentLoaded)
+        // fallback if main-content is missing (shouldn't happen)
         const leftPanel = document.getElementById('left-panel');
         const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
         canvas.width = window.innerWidth - leftPanelWidth;
@@ -99,22 +97,21 @@ function setCanvasSize() {
         console.log('Calculated Canvas Width:', canvas.width, 'Calculated Canvas Height:', canvas.height);
     }
 
-    // Set fixed dimensions for live view canvas attributes, for crisp rendering
+    // minimap always gets fixed size, so it's not blurry
     if (liveViewCanvas) {
         liveViewCanvas.width = LIVE_VIEW_CANVAS_WIDTH;
         liveViewCanvas.height = LIVE_VIEW_CANVAS_HEIGHT;
     }
 
-
     if (gridData && gridData.length > 0) {
         console.log('setCanvasSize: Marking dirty due to resize with existing data.');
-        dirty = true; // redraw next tick instead of immediately
+        dirty = true; // let the next tick handle redraw
     } else {
         console.log('setCanvasSize: Grid data not yet available for redraw.');
     }
 }
 
-// --- Backend Communication Functions ---
+// backend communication
 
 async function getGrid() {
     try {
@@ -129,7 +126,8 @@ async function getGrid() {
         console.error('Error fetching grid:', error);
         alert('Could not connect to backend to get initial grid. Is your backend running?');
         console.log('Returning fallback default grid (this will be overridden if backend serves a valid grid).');
-        return Array(GRID_HEIGHT).fill(0).map(() => Array(GRID_WIDTH).fill('#1a1a1a')); // Fallback to dark gray
+        // fallback: just fill it with dark gray (this ruined my life thinking i did something wrong before this)
+        return Array(GRID_HEIGHT).fill(0).map(() => Array(GRID_WIDTH).fill('#1a1a1a'));
     }
 }
 
@@ -155,7 +153,7 @@ async function placePixel(x, y, color) {
     }
 }
 
-// --- Canvas Drawing Functions (Main View) ---
+// drawing to the canvas
 
 function drawPixel(x, y, color) {
     ctx.fillStyle = color;
@@ -163,7 +161,7 @@ function drawPixel(x, y, color) {
 }
 
 function drawGrid(grid) {
-    // console.log('--- Debug: drawGrid Call (Main Canvas) ---'); // Commented for less noise
+    // ctx.clearRect wipes the canvas, so we start fresh (this is the only way to clear the canvas)
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
@@ -179,7 +177,6 @@ function drawGrid(grid) {
             }
         }
     }
-    // console.log('Total pixels iterated and drawn (if valid):', pixelsDrawnCount); // Commented for less noise
 
     if (selectedPixel.x !== null && selectedPixel.y !== null) {
         console.log('Drawing highlight for selected pixel:', selectedPixel.x, selectedPixel.y);
@@ -187,7 +184,6 @@ function drawGrid(grid) {
     }
 
     ctx.restore();
-    // console.log('drawGrid completed.'); // Commented for less noise
 }
 
 function drawHighlight(x, y) {
@@ -196,14 +192,14 @@ function drawHighlight(x, y) {
     ctx.strokeRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
 }
 
-// --- Canvas Drawing Functions (Live View) ---
+// minimap drawing
 function drawLiveViewGrid(grid) {
     if (!liveViewCtx) {
         console.error("Live View Canvas Context not available.");
         return;
     }
 
-    // Clear the live view canvas
+    // clear minimap
     liveViewCtx.clearRect(0, 0, liveViewCanvas.width, liveViewCanvas.height);
 
     for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -219,10 +215,9 @@ function drawLiveViewGrid(grid) {
             }
         }
     }
-    // console.log('Live View Grid drawn.'); // Commented for less noise
 }
 
-// rAF render loop (dirty flag)
+// rAF loop, only draws if dirty aka it has a change to draw
 function tick() {
     if (dirty && gridData && gridData.length) {
         drawGrid(gridData);
@@ -232,7 +227,7 @@ function tick() {
     requestAnimationFrame(tick);
 }
 
-// --- Pixel Log Function ---
+// pixel log, just appends a line to the chat log
 function addPixelLogEntry(x, y, color) {
     if (!pixelChatLog) {
         console.error("Pixel chat log element not found.");
@@ -247,7 +242,7 @@ function addPixelLogEntry(x, y, color) {
 }
 
 
-// --- Event Handlers (Mouse & Touch) ---
+// mouse/touch event handlers
 
 function getGridCoordsFromScreen(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -266,7 +261,7 @@ function getGridCoordsFromScreen(clientX, clientY) {
     return null;
 }
 
-// Unified click/tap handler - Now only triggered on mouseup/touchend if it's a click
+// click/tap handler, only runs if it was actually a click/tap
 function handleUserInteractionClick(event) {
     const currentX = event.clientX;
     const currentY = event.clientY;
@@ -277,18 +272,14 @@ function handleUserInteractionClick(event) {
         if (selectedPixel.x !== coords.x || selectedPixel.y !== coords.y) {
             console.log('DEBUG: SELECTED PIXEL CHANGING!', {old: selectedPixel, new: coords});
             console.trace('Call stack for selectedPixel change');
-        } else {
-            // console.log('DEBUG: Selected pixel is already', coords, '(no change).'); // Commented for less noise
         }
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
         dirty = true; 
     } else {
-        if (selectedPixel.x !== null) { // Only log if it was previously selected
+        if (selectedPixel.x !== null) {
             console.log('DEBUG: SELECTED PIXEL CLEARED!', {old: selectedPixel, new: null});
             console.trace('Call stack for selectedPixel clear');
-        } else {
-            // console.log('DEBUG: Selected pixel already null (no change).'); // Commented for less noise
         }
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
@@ -296,21 +287,19 @@ function handleUserInteractionClick(event) {
     }
 }
 
-// Mouse Handlers
+// mouse handlers
 function handleMouseDown(event) {
     isDragging = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
-    lastClickX = event.clientX; // Store for click/drag differentiation
-    lastClickY = event.clientY; // Store for click/drag differentiation
+    lastClickX = event.clientX; // for click/drag diff
+    lastClickY = event.clientY;
     canvas.classList.add('grabbing');
     console.log('DEBUG: Mouse Down - Starting interaction. Stored start coords:', lastClickX, lastClickY);
 }
 
 function handleMouseMove(event) {
-    if (!isDragging) {
-        return;
-    }
+    if (!isDragging) return;
 
     const dx = event.clientX - lastMouseX;
     const dy = event.clientY - lastMouseY;
@@ -329,34 +318,33 @@ function handleMouseUp(event) {
     canvas.classList.remove('grabbing');
     console.log('DEBUG: Mouse Up - Ending interaction.');
 
-    // Check if it was a click (movement within threshold)
+    // if you didn't move much, it's a click
     const dx = event.clientX - lastClickX;
     const dy = event.clientY - lastClickY;
 
     if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
         console.log('DEBUG: Mouse Up - Detected as a click. Calling handleUserInteractionClick with start coords.');
-        // Pass the original mousedown coordinates for selection
         handleUserInteractionClick({ clientX: lastClickX, clientY: lastClickY });
     } else {
         console.log('DEBUG: Mouse Up - Detected as a drag. No selection change.');
     }
 }
 
-// Touch Handlers
+// touch handlers
 function handleTouchStart(event) {
-    event.preventDefault(); // Prevent default browser actions like scrolling/zooming
+    event.preventDefault(); // stops scrolling
 
-    if (event.touches.length === 1) { // Single touch for dragging/tapping
+    if (event.touches.length === 1) { // single finger = drag or tap
         isDragging = true;
         lastTouchX = event.touches[0].clientX;
         lastTouchY = event.touches[0].clientY;
-        touchStartX = event.touches[0].clientX; // Store for click/tap differentiation
-        touchStartY = event.touches[0].clientY; // Store for click/tap differentiation
+        touchStartX = event.touches[0].clientX;
+        touchStartY = event.touches[0].clientY;
         canvas.classList.add('grabbing');
-        initialPinchDistance = null; // Ensure pinch state is reset for single touch
+        initialPinchDistance = null; // not pinching
         console.log('DEBUG: Touch Start - Single touch (potential drag/tap). Stored start coords:', touchStartX, touchStartY);
-    } else if (event.touches.length === 2) { // Two touches for pinch-to-zoom
-        isDragging = false; // Disable single-touch drag during pinch
+    } else if (event.touches.length === 2) { // two fingers = pinch
+        isDragging = false; // no drag while pinching
         initialPinchDistance = getPinchDistance(event);
         console.log('DEBUG: Touch Start - Two touches (potential pinch-to-zoom). initialPinchDistance:', initialPinchDistance);
     } else {
@@ -365,9 +353,9 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
-    event.preventDefault(); // Prevent default browser scroll/zoom during touch move
+    event.preventDefault(); // no browser scroll/zoom
 
-    if (event.touches.length === 1 && isDragging) { // Single touch for dragging
+    if (event.touches.length === 1 && isDragging) { // drag
         const dx = event.touches[0].clientX - lastTouchX;
         const dy = event.touches[0].clientY - lastTouchY;
 
@@ -378,13 +366,13 @@ function handleTouchMove(event) {
         lastTouchY = event.touches[0].clientY;
 
         dirty = true; 
-    } else if (event.touches.length === 2 && initialPinchDistance !== null) { // Two touches for pinch-to-zoom
+    } else if (event.touches.length === 2 && initialPinchDistance !== null) { // pinch-to-zoom
         const currentPinchDistance = getPinchDistance(event);
         const scaleChange = currentPinchDistance / initialPinchDistance;
 
         const oldScale = scale;
-        scale *= scaleChange; // Apply zoom factor
-        scale = Math.max(0.1, Math.min(scale, 10.0)); // Clamp scale
+        scale *= scaleChange;
+        scale = Math.max(0.1, Math.min(scale, 10.0)); // clamps scale
 
         const touchCenterX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
         const touchCenterY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
@@ -399,20 +387,19 @@ function handleTouchMove(event) {
         offsetX = canvasX - mouseWorldX * scale;
         offsetY = canvasY - mouseWorldY * scale;
 
-        initialPinchDistance = currentPinchDistance; // Update initial for next move event
+        initialPinchDistance = currentPinchDistance;
         dirty = true; 
         console.log(`DEBUG: Touch Move - Pinch-to-zoom. scale:${scale}, currentPinchDistance:${currentPinchDistance}`);
-    } else {
     }
 }
 
 function handleTouchEnd(event) {
     canvas.classList.remove('grabbing');
     isDragging = false;
-    initialPinchDistance = null; // Reset pinch state
+    initialPinchDistance = null; 
     console.log('DEBUG: Touch End - Ending interaction.');
 
-    // Only process for selection if it was a single touch that ended
+    // only care if it was a single touch that ended
     if (event.changedTouches.length === 1) {
         const finalX = event.changedTouches[0].clientX;
         const finalY = event.changedTouches[0].clientY;
@@ -422,7 +409,6 @@ function handleTouchEnd(event) {
 
         if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
             console.log('DEBUG: Touch End - Detected as a tap. Calling handleUserInteractionClick with start coords.');
-            // Pass the original touchstart coordinates for selection
             handleUserInteractionClick({ clientX: touchStartX, clientY: touchStartY });
         } else {
             console.log('DEBUG: Touch End - Detected as a drag/swipe. No selection change.');
@@ -430,7 +416,7 @@ function handleTouchEnd(event) {
     }
 }
 
-// Helper function for pinch distance calculation
+// pinch distance helper
 function getPinchDistance(event) {
     const touch1 = event.touches[0];
     const touch2 = event.touches[1];
@@ -440,24 +426,24 @@ function getPinchDistance(event) {
     );
 }
 
-
+// mouse wheel = zoom
 function handleMouseWheel(event) {
     if (event.preventDefault) {
-        event.preventDefault(); // Stop default page scroll
+        event.preventDefault(); // stops page scroll
     }
 
     const zoomFactor = 0.1;
     const oldScale = scale;
 
-    if (event.deltaY < 0) { // Zoom in (scroll up)
+    if (event.deltaY < 0) { // zoom in
         scale *= (1 + zoomFactor);
-    } else { // Zoom out (scroll down)
+    } else { // zoom out
         scale /= (1 + zoomFactor);
     }
 
-    scale = Math.max(0.1, Math.min(scale, 10.0)); // Clamp scale
+    scale = Math.max(0.1, Math.min(scale, 10.0)); // clamps scale
 
-    // Get mouse position relative to canvas for zoom centering
+    // zoom around mouse
     const rect = canvas.getBoundingClientRect();
     const mouseCanvasX = event.clientX - rect.left;
     const mouseCanvasY = event.clientY - rect.top;
@@ -494,7 +480,7 @@ function updateSelectedCoordsDisplay() {
     }
 }
 
-// --- WebSocket Setup ---
+// websocket handling
 
 function createReconnectButton() {
     const btn = document.createElement('button');
@@ -512,7 +498,7 @@ function createReconnectButton() {
     btn.addEventListener('click', () => {
         if (!socket) return;
         addPixelLogEntry('System', 'Reconnecting…', '#ffff00');
-        btn.disabled = true; //no more reconnect attempt spamming
+        btn.disabled = true; // no reconnect spam
         socket.connect(); 
     });
 
@@ -563,7 +549,7 @@ function setupWebSocket() {
 }
 
 
-// --- Initialization ---
+// startup sequence
 
 async function init() {
     setCanvasSize();
@@ -581,19 +567,18 @@ async function init() {
     offsetX = (canvas.width - (gridPixelWidth * scale)) / 2;
     offsetY = (canvas.height - (gridPixelHeight * scale)) / 2;
 
-    // Initial render in the first rAF tick
-    dirty = true;
+    dirty = true; // sets this for first draw
 
     window.addEventListener('resize', setCanvasSize);
 
-    // Mouse Event Listeners
+    // mouse listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseout', handleMouseUp); // Treat mouse leaving as mouse up
+    canvas.addEventListener('mouseout', handleMouseUp); 
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
-    // Touch Event Listeners
+    // touch listeners
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd);
@@ -604,13 +589,12 @@ async function init() {
     zoomInBtn.addEventListener('click', () => handleMouseWheel({ deltaY: -1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
     zoomOutBtn.addEventListener('click', () => handleMouseWheel({ deltaY: 1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
 
-
     updateSelectedCoordsDisplay();
     setupWebSocket();
 
     console.log('Frontend initialized!');
 
-    // start the rAF loop
+    // animation ticker
     requestAnimationFrame(tick);
 }
 
