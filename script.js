@@ -1,7 +1,7 @@
 // --- Configuration ---
 
-const BACKEND_URL = 'http://restaurants-ez.gl.at.ply.gg:51332';
-const WEBSOCKET_URL = 'http://restaurants-ez.gl.at.ply.gg:51332';
+const BACKEND_URL = 'http://d776-2001-8003-c356-f001-cab-89ca-2a8a-e412.ngrok-free.app';
+const WEBSOCKET_URL = 'http://d776-2001-8003-c356-f001-cab-89ca-2a8a-e412.ngrok-free.app';
 
 
 const PIXEL_SIZE = 10; // Base size of each pixel in grid coordinates
