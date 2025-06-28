@@ -168,19 +168,50 @@ function drawGrid(grid) {
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
+    // viewport culling MATHEMATICS
+    // screen → world → grid indices (add +- 1 cell buffer on each bound)
+    const worldMinX = (0 - offsetX) / scale;
+    const worldMinY = (0 - offsetY) / scale;
+    const worldMaxX = (canvas.width - offsetX) / scale;
+    const worldMaxY = (canvas.height - offsetY) / scale;
+
+    let startCol = Math.floor(worldMinX / PIXEL_SIZE) - 1;
+    let endCol   = Math.ceil(worldMaxX / PIXEL_SIZE) + 1;
+    let startRow = Math.floor(worldMinY / PIXEL_SIZE) - 1;
+    let endRow   = Math.ceil(worldMaxY / PIXEL_SIZE) + 1;
+
+    // clamp to grid bounds so we don't read undefined rows/cols
+    startCol = Math.max(0, startCol);
+    startRow = Math.max(0, startRow);
+    endCol   = Math.min(GRID_WIDTH  - 1, endCol);
+    endRow   = Math.min(GRID_HEIGHT - 1, endRow);
+
     let pixelsDrawnCount = 0;
-    for (let y = 0; y < GRID_HEIGHT; y++) {
-        for (let x = 0; x < GRID_WIDTH; x++) {
-            if (grid[y] && grid[y][x] !== undefined) {
-                drawPixel(x, y, grid[y][x]);
+
+    for (let y = startRow; y <= endRow; y++) {
+        const row = grid[y];
+        if (!row) continue;
+        for (let x = startCol; x <= endCol; x++) {
+            const color = row[x];
+            if (color !== undefined) {
+                drawPixel(x, y, color);
                 pixelsDrawnCount++;
             }
         }
     }
 
+    if (DEBUG) {
+        console.log(`drawGrid: drawn ${pixelsDrawnCount} pixels (rows ${startRow}-${endRow}, cols ${startCol}-${endCol})`);
+    }
+
     if (selectedPixel.x !== null && selectedPixel.y !== null) {
-        console.log('Drawing highlight for selected pixel:', selectedPixel.x, selectedPixel.y);
-        drawHighlight(selectedPixel.x, selectedPixel.y);
+        if (
+            selectedPixel.x >= startCol && selectedPixel.x <= endCol &&
+            selectedPixel.y >= startRow && selectedPixel.y <= endRow
+        ) {
+            // only highlight if the selected pixel is within the current viewport to avoid unnecessary work
+            drawHighlight(selectedPixel.x, selectedPixel.y);
+        }
     }
 
     ctx.restore();
