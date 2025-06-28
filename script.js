@@ -20,11 +20,18 @@ const CLICK_THRESHOLD = 5; // if you move less than this, it's a click/tap
 
 
 // main canvas DOM refs
-const canvas = document.getElementById('rplaceCanvas');
+const canvas = document.getElementById('neuroCanvas');
 const ctx = canvas.getContext('2d');
 console.log('--- Debug: Main Canvas Context ---');
-console.log('Canvas element:', canvas);
-console.log('Canvas 2D context:', ctx);
+console.log('neuroCanvas element:', canvas);
+console.log('neuroCanvas 2D context:', ctx);
+
+// highlight canvas (absolute overlay) never intercepts pointer events
+const highlightCanvas = document.getElementById('neuroHighlightCanvas');
+const highlightCtx = highlightCanvas.getContext('2d');
+
+highlightCanvas.style.pointerEvents = 'none';
+
 
 // live view DOM refs
 const liveViewCanvas = document.getElementById('liveViewCanvas');
@@ -49,7 +56,8 @@ let selectedPixel = { x: null, y: null }; // null means nothing picked
 
 let socket = null; // socket.io instance, just hanging out here
 
-let dirty = true; // if true, redraw next tick
+let dirty = true; // if true, redraw next tick for main grid
+let highlightDirty = true; // if true, redraw highlight layer
 
 // grid size, gotta match backend
 const GRID_WIDTH = 500;
@@ -82,8 +90,9 @@ function setCanvasSize() {
     if (mainContentDiv) {
         canvas.width = mainContentDiv.clientWidth;
         canvas.height = mainContentDiv.clientHeight;
-        console.log('--- Debug: rplaceCanvas Size ---');
-        console.log('Calculated rplaceCanvas Width:', canvas.width, 'Calculated rplaceCanvas Height:', canvas.height);
+        console.log('--- Debug: Main Canvas Context ---');
+        console.log('neuroCanvas element:', canvas);
+        console.log('neuroCanvas 2D context:', ctx);
     } else {
         // fallback if main-content is missing (shouldn't happen)
         const leftPanel = document.getElementById('left-panel');
@@ -102,6 +111,14 @@ function setCanvasSize() {
         liveViewCanvas.width = LIVE_VIEW_CANVAS_WIDTH;
         liveViewCanvas.height = LIVE_VIEW_CANVAS_HEIGHT;
     }
+
+    // make highlight canvas match the main canvas resolution
+    if (highlightCanvas) {
+        highlightCanvas.width = canvas.width;
+        highlightCanvas.height = canvas.height;
+    }
+
+    highlightDirty = true; // need to reposition/redraw highlight on resize
 
     if (gridData && gridData.length > 0) {
         console.log('setCanvasSize: Marking dirty due to resize with existing data.');
@@ -204,23 +221,43 @@ function drawGrid(grid) {
         console.log(`drawGrid: drawn ${pixelsDrawnCount} pixels (rows ${startRow}-${endRow}, cols ${startCol}-${endCol})`);
     }
 
-    if (selectedPixel.x !== null && selectedPixel.y !== null) {
-        if (
-            selectedPixel.x >= startCol && selectedPixel.x <= endCol &&
-            selectedPixel.y >= startRow && selectedPixel.y <= endRow
-        ) {
-            // only highlight if the selected pixel is within the current viewport to avoid unnecessary work
-            drawHighlight(selectedPixel.x, selectedPixel.y);
-        }
+    if (
+        selectedPixel.x !== null &&
+        selectedPixel.y !== null &&
+        selectedPixel.x >= startCol && selectedPixel.x <= endCol &&
+        selectedPixel.y >= startRow && selectedPixel.y <= endRow
+    ) {
+        highlightDirty = true; // let the highlight layer redraw
     }
 
     ctx.restore();
 }
 
-function drawHighlight(x, y) {
-    ctx.strokeStyle = 'var(--gd-highlight-color)';
-    ctx.lineWidth = 3 / scale;
-    ctx.strokeRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+function drawHighlightLayer() {
+    if (!highlightCtx) return;
+
+    // clear previous highlight
+    highlightCtx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+
+    if (selectedPixel.x === null || selectedPixel.y === null) {
+        return; // nothing selected → nothing to draw
+    }
+
+    highlightCtx.save();
+    // mirror the same pan/zoom transforms as the main canvas
+    highlightCtx.translate(offsetX, offsetY);
+    highlightCtx.scale(scale, scale);
+
+    highlightCtx.strokeStyle = 'var(--gd-highlight-color)';
+    highlightCtx.lineWidth = 3 / scale;
+    highlightCtx.strokeRect(
+        selectedPixel.x * PIXEL_SIZE,
+        selectedPixel.y * PIXEL_SIZE,
+        PIXEL_SIZE,
+        PIXEL_SIZE
+    );
+
+    highlightCtx.restore();
 }
 
 // minimap drawing
@@ -255,6 +292,12 @@ function tick() {
         drawLiveViewGrid(gridData);
         dirty = false;
     }
+
+    if (highlightDirty) {
+        drawHighlightLayer();
+        highlightDirty = false;
+    }
+
     requestAnimationFrame(tick);
 }
 
@@ -307,6 +350,7 @@ function handleUserInteractionClick(event) {
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
         dirty = true; 
+        highlightDirty = true;
     } else {
         if (selectedPixel.x !== null) {
             console.log('DEBUG: SELECTED PIXEL CLEARED!', {old: selectedPixel, new: null});
@@ -315,6 +359,7 @@ function handleUserInteractionClick(event) {
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
         dirty = true; 
+        highlightDirty = true;
     }
 }
 
@@ -342,6 +387,7 @@ function handleMouseMove(event) {
     lastMouseY = event.clientY;
 
     dirty = true; 
+    highlightDirty = true;
 }
 
 function handleMouseUp(event) {
@@ -397,6 +443,7 @@ function handleTouchMove(event) {
         lastTouchY = event.touches[0].clientY;
 
         dirty = true; 
+        highlightDirty = true;
     } else if (event.touches.length === 2 && initialPinchDistance !== null) { // pinch-to-zoom
         const currentPinchDistance = getPinchDistance(event);
         const scaleChange = currentPinchDistance / initialPinchDistance;
@@ -420,6 +467,7 @@ function handleTouchMove(event) {
 
         initialPinchDistance = currentPinchDistance;
         dirty = true; 
+        highlightDirty = true;
         console.log(`DEBUG: Touch Move - Pinch-to-zoom. scale:${scale}, currentPinchDistance:${currentPinchDistance}`);
     }
 }
@@ -486,6 +534,7 @@ function handleMouseWheel(event) {
     offsetY = mouseCanvasY - mouseWorldY * scale;
 
     dirty = true; 
+    highlightDirty = true;
     console.log(`DEBUG: Mouse Wheel - Zoom. deltaY:${event.deltaY}, new scale:${scale}`);
 }
 
@@ -630,3 +679,8 @@ async function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// debug for highlight canvas
+console.log('--- Debug: Highlight Canvas Context ---');
+console.log('Highlight canvas element:', highlightCanvas);
+console.log('Highlight 2D context:', highlightCtx);
