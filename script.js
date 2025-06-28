@@ -41,8 +41,7 @@ let currentColor = colorPicker.value;
 let gridData = [];
 let selectedPixel = { x: null, y: null }; // Initialize to null explicitly for clarity
 
-// ADD BELOW: WebSocket instance reference so it can be reused by the reconnect button
-let socket = null; // Holds the Socket.IO client instance
+let socket = null; // socket.io instance is global & held here
 
 // --- Canvas Dimensions (Must match backend grid dimensions) ---
 const GRID_WIDTH = 500;
