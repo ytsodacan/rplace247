@@ -378,11 +378,13 @@ function setupWebSocket() {
 
     socket.on('disconnect', () => {
         console.log('Disconnected from WebSocket server. Attempting to reconnect...');
+        alert('Disconnected from WebSocket server. Attempting to reconnect...');
         addPixelLogEntry('System', 'Disconnected', '#ff0000'); // Log disconnection
     });
 
     socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
+        alert(`WebSocket connection error: Unable to connect to the server. Please check your internet connection or try again later. (it may be down)`);
         addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900'); // Log errors
     });
 }

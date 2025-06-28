@@ -208,3 +208,46 @@ body {
 .grabbing {
     cursor: grabbing !important;
 }
+
+@media (max-width: 768px) {
+    /* Hide the entire left panel on screens 768px wide or narrower */
+    #left-panel {
+        display: none;
+    }
+
+    /* Adjust the main app container layout for mobile */
+    #app-container {
+        flex-direction: column; /* Stack main content vertically instead of side-by-side */
+    }
+
+    /* Make the main content area take up the full width and height when the left panel is gone */
+    #main-content {
+        width: 100%;
+        height: 100%;
+        flex-grow: 1; /* Ensure it expands to fill available space */
+    }
+
+    /* Ensure the rplaceCanvas fills its parent (#main-content) */
+    #rplaceCanvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Optional: Adjust bottom bar for better mobile usability (stack controls) */
+    .bottom-bar {
+        flex-direction: column; /* Stack items vertically */
+        gap: 10px; /* Add some space between stacked items */
+        padding: 10px; /* Adjust padding */
+    }
+
+    .controls,
+    .selected-coords,
+    .zoom-controls {
+        width: 100%; /* Make controls take full width */
+        justify-content: center; /* Center items within their full width */
+    }
+
+    .controls {
+        flex-wrap: wrap; /* Allow controls to wrap to next line if necessary */
+    }
+}
