@@ -9,6 +9,8 @@ const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // For a 500x500 grid, live view will be 
 const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
 const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
 
+const CLICK_THRESHOLD = 5; // Maximum pixel movement to still be considered a click/tap
+
 
 // --- DOM Elements (Main Canvas) ---
 const canvas = document.getElementById('rplaceCanvas');
@@ -37,7 +39,7 @@ const zoomOutBtn = document.getElementById('zoomOutBtn');
 // --- Global State ---
 let currentColor = colorPicker.value;
 let gridData = [];
-let selectedPixel = { x: null, y: null };
+let selectedPixel = { x: null, y: null }; // Initialize to null explicitly for clarity
 
 // --- Canvas Dimensions (Must match backend grid dimensions) ---
 const GRID_WIDTH = 500;
@@ -52,15 +54,15 @@ let offsetY = 0;
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
-let lastClickX = 0; // To differentiate mouse click from drag
-let lastClickY = 0; // To differentiate mouse click from drag
+let lastClickX = 0; // Store mouse down X for click detection
+let lastClickY = 0; // Store mouse down Y for click detection
 
-// --- Touch Interaction State (NEW) ---
+// --- Touch Interaction State ---
 let initialPinchDistance = null; // For pinch-to-zoom
 let lastTouchX = 0; // For single-touch drag
 let lastTouchY = 0; // For single-touch drag
-let touchStartX = 0; // For touch tap vs drag detection
-let touchStartY = 0; // For touch tap vs drag detection
+let touchStartX = 0; // Store touch start X for tap detection
+let touchStartY = 0; // Store touch start Y for tap detection
 
 
 // --- Canvas Setup and Resizing ---
@@ -136,8 +138,6 @@ async function placePixel(x, y, color) {
         }
 
         console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
-        // selectedPixel = { x: null, y: null };
-        // updateSelectedCoordsDisplay();
     } catch (error) {
         console.error('Error sending pixel update:', error);
         alert(`Failed to place pixel: ${error.message}`);
@@ -152,11 +152,9 @@ function drawPixel(x, y, color) {
 }
 
 function drawGrid(grid) {
-    console.log('--- Debug: drawGrid Call (Main Canvas) ---');
-    console.log('Clearing canvas from (0,0) to (' + canvas.width + ',' + canvas.height + ')');
+    // console.log('--- Debug: drawGrid Call (Main Canvas) ---'); // Commented for less noise
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    console.log('Applying transforms: scale=', scale, 'offsetX=', offsetX, 'offsetY=', offsetY);
     ctx.save();
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
@@ -170,7 +168,7 @@ function drawGrid(grid) {
             }
         }
     }
-    console.log('Total pixels iterated and drawn (if valid):', pixelsDrawnCount);
+    // console.log('Total pixels iterated and drawn (if valid):', pixelsDrawnCount); // Commented for less noise
 
     if (selectedPixel.x !== null && selectedPixel.y !== null) {
         console.log('Drawing highlight for selected pixel:', selectedPixel.x, selectedPixel.y);
@@ -178,7 +176,7 @@ function drawGrid(grid) {
     }
 
     ctx.restore();
-    console.log('drawGrid completed.');
+    // console.log('drawGrid completed.'); // Commented for less noise
 }
 
 function drawHighlight(x, y) {
@@ -201,18 +199,16 @@ function drawLiveViewGrid(grid) {
         for (let x = 0; x < GRID_WIDTH; x++) {
             if (grid[y] && grid[y][x] !== undefined) {
                 liveViewCtx.fillStyle = grid[y][x];
-                // Draw pixels for live view. Each grid cell becomes 1 pixel on the live view canvas.
-                // We use the LIVE_VIEW_PIXEL_SIZE_FACTOR to map original grid coords to live view coords.
                 liveViewCtx.fillRect(
                     x / LIVE_VIEW_PIXEL_SIZE_FACTOR,
                     y / LIVE_VIEW_PIXEL_SIZE_FACTOR,
-                    1, // Always draw a 1x1 pixel in live view's coordinate system
+                    1,
                     1
                 );
             }
         }
     }
-    console.log('Live View Grid drawn.');
+    // console.log('Live View Grid drawn.'); // Commented for less noise
 }
 
 // --- Pixel Log Function ---
@@ -223,11 +219,9 @@ function addPixelLogEntry(x, y, color) {
     }
 
     const logEntry = document.createElement('p');
-    // Format the message: (X, Y) set to #COLOR
     logEntry.innerHTML = `(<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
     pixelChatLog.appendChild(logEntry);
 
-    // Auto-scroll to the bottom of the log
     pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
 }
 
@@ -251,34 +245,33 @@ function getGridCoordsFromScreen(clientX, clientY) {
     return null;
 }
 
-// Unified click/tap handler
+// Unified click/tap handler - Now only triggered on mouseup/touchend if it's a click
 function handleUserInteractionClick(event) {
     const currentX = event.clientX;
     const currentY = event.clientY;
 
-    // Differentiate click/tap from drag based on movement threshold
-    // Mouse clicks use lastClickX/Y
-    // Touch taps use touchStartX/Y
-    const isDragMovement = (event.type === 'mouseup' && (Math.abs(currentX - lastClickX) > 5 || Math.abs(currentY - lastClickY) > 5)) ||
-                           (event.type === 'touchend' && (Math.abs(currentX - touchStartX) > 10 || Math.abs(currentY - touchStartY) > 10));
-
-    if (isDragMovement) {
-        console.log('DEBUG: Interaction suppressed (was likely a drag/zoom).');
-        return;
-    }
-
     const coords = getGridCoordsFromScreen(currentX, currentY);
 
     if (coords) {
+        if (selectedPixel.x !== coords.x || selectedPixel.y !== coords.y) {
+            console.log('DEBUG: SELECTED PIXEL CHANGING!', {old: selectedPixel, new: coords});
+            console.trace('Call stack for selectedPixel change');
+        } else {
+            // console.log('DEBUG: Selected pixel is already', coords, '(no change).'); // Commented for less noise
+        }
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Pixel selected via click/tap:', coords.x, coords.y);
     } else {
+        if (selectedPixel.x !== null) { // Only log if it was previously selected
+            console.log('DEBUG: SELECTED PIXEL CLEARED!', {old: selectedPixel, new: null});
+            console.trace('Call stack for selectedPixel clear');
+        } else {
+            // console.log('DEBUG: Selected pixel already null (no change).'); // Commented for less noise
+        }
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Clicked/tapped outside grid bounds, selected pixel cleared.');
     }
 }
 
@@ -287,14 +280,16 @@ function handleMouseDown(event) {
     isDragging = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
-    lastClickX = event.clientX; // Store click position on mouse down
-    lastClickY = event.clientY; // Store click position on mouse down
+    lastClickX = event.clientX; // Store for click/drag differentiation
+    lastClickY = event.clientY; // Store for click/drag differentiation
     canvas.classList.add('grabbing');
-    console.log('DEBUG: Mouse Down - isDragging:', isDragging, 'ClientX:', event.clientX, 'ClientY:', event.clientY);
+    console.log('DEBUG: Mouse Down - Starting interaction. Stored start coords:', lastClickX, lastClickY);
 }
 
 function handleMouseMove(event) {
-    if (!isDragging) return;
+    if (!isDragging) {
+        return;
+    }
 
     const dx = event.clientX - lastMouseX;
     const dy = event.clientY - lastMouseY;
@@ -306,41 +301,51 @@ function handleMouseMove(event) {
     lastMouseY = event.clientY;
 
     drawGrid(gridData);
-    console.log('DEBUG: Mouse Move - offsetX:', offsetX, 'offsetY:', offsetY, 'dx:', dx, 'dy:', dy);
+    // console.log(`DEBUG: Mouse Move - Panning. dx:${dx}, dy:${dy}, offsetX:${offsetX}, offsetY:${offsetY}`); // Commented for less noise
 }
 
 function handleMouseUp(event) {
     isDragging = false;
     canvas.classList.remove('grabbing');
-    console.log('DEBUG: Mouse Up - isDragging:', isDragging);
-    // Call unified click handler to check if it was a click (not a drag)
-    handleUserInteractionClick(event);
+    console.log('DEBUG: Mouse Up - Ending interaction.');
+
+    // Check if it was a click (movement within threshold)
+    const dx = event.clientX - lastClickX;
+    const dy = event.clientY - lastClickY;
+
+    if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
+        console.log('DEBUG: Mouse Up - Detected as a click. Calling handleUserInteractionClick with start coords.');
+        // Pass the original mousedown coordinates for selection
+        handleUserInteractionClick({ clientX: lastClickX, clientY: lastClickY });
+    } else {
+        console.log('DEBUG: Mouse Up - Detected as a drag. No selection change.');
+    }
 }
 
-// Touch Handlers (NEW)
+// Touch Handlers
 function handleTouchStart(event) {
-    // Prevent default browser actions like scrolling/zooming on the canvas
-    event.preventDefault();
+    event.preventDefault(); // Prevent default browser actions like scrolling/zooming
 
-    if (event.touches.length === 1) { // Single touch for dragging
+    if (event.touches.length === 1) { // Single touch for dragging/tapping
         isDragging = true;
         lastTouchX = event.touches[0].clientX;
         lastTouchY = event.touches[0].clientY;
-        touchStartX = event.touches[0].clientX; // Store for tap detection
-        touchStartY = event.touches[0].clientY; // Store for tap detection
+        touchStartX = event.touches[0].clientX; // Store for click/tap differentiation
+        touchStartY = event.touches[0].clientY; // Store for click/tap differentiation
         canvas.classList.add('grabbing');
         initialPinchDistance = null; // Ensure pinch state is reset for single touch
-        console.log('DEBUG: Touch Start - Single touch for drag.');
+        console.log('DEBUG: Touch Start - Single touch (potential drag/tap). Stored start coords:', touchStartX, touchStartY);
     } else if (event.touches.length === 2) { // Two touches for pinch-to-zoom
         isDragging = false; // Disable single-touch drag during pinch
         initialPinchDistance = getPinchDistance(event);
-        console.log('DEBUG: Touch Start - Two touches for zoom.');
+        console.log('DEBUG: Touch Start - Two touches (potential pinch-to-zoom). initialPinchDistance:', initialPinchDistance);
+    } else {
+        console.log('DEBUG: Touch Start - More than 2 touches. Ignoring.');
     }
 }
 
 function handleTouchMove(event) {
-    // Prevent default browser scroll/zoom during touch move
-    event.preventDefault();
+    event.preventDefault(); // Prevent default browser scroll/zoom during touch move
 
     if (event.touches.length === 1 && isDragging) { // Single touch for dragging
         const dx = event.touches[0].clientX - lastTouchX;
@@ -353,19 +358,15 @@ function handleTouchMove(event) {
         lastTouchY = event.touches[0].clientY;
 
         drawGrid(gridData);
-        console.log('DEBUG: Touch Move - Dragging.');
+        // console.log(`DEBUG: Touch Move - Panning. dx:${dx}, dy:${dy}, offsetX:${offsetX}, offsetY:${offsetY}`); // Commented for less noise
     } else if (event.touches.length === 2 && initialPinchDistance !== null) { // Two touches for pinch-to-zoom
         const currentPinchDistance = getPinchDistance(event);
-        // Calculate scale change relative to the initial pinch distance
         const scaleChange = currentPinchDistance / initialPinchDistance;
 
         const oldScale = scale;
         scale *= scaleChange; // Apply zoom factor
+        scale = Math.max(0.1, Math.min(scale, 10.0)); // Clamp scale
 
-        // Clamp scale to prevent too much zoom in/out
-        scale = Math.max(0.1, Math.min(scale, 10.0));
-
-        // Recalculate offsets to zoom around the center of the two touches
         const touchCenterX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
         const touchCenterY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
 
@@ -381,7 +382,9 @@ function handleTouchMove(event) {
 
         initialPinchDistance = currentPinchDistance; // Update initial for next move event
         drawGrid(gridData);
-        console.log('DEBUG: Touch Move - Pinch-to-zoom.');
+        console.log(`DEBUG: Touch Move - Pinch-to-zoom. scale:${scale}, currentPinchDistance:${currentPinchDistance}`);
+    } else {
+        // console.log(`DEBUG: Touch Move - No action. Touches:${event.touches.length}, isDragging:${isDragging}, initialPinchDistance:${initialPinchDistance}`); // Commented for less noise
     }
 }
 
@@ -389,11 +392,24 @@ function handleTouchEnd(event) {
     canvas.classList.remove('grabbing');
     isDragging = false;
     initialPinchDistance = null; // Reset pinch state
+    console.log('DEBUG: Touch End - Ending interaction.');
 
-    // Call unified click handler to check if it was a tap (not a drag/zoom)
-    // Use changedTouches[0] as it represents the touch that just ended
-    handleUserInteractionClick({ clientX: event.changedTouches[0].clientX, clientY: event.changedTouches[0].clientY, type: 'touchend' });
-    console.log('DEBUG: Touch End - Processed.');
+    // Only process for selection if it was a single touch that ended
+    if (event.changedTouches.length === 1) {
+        const finalX = event.changedTouches[0].clientX;
+        const finalY = event.changedTouches[0].clientY;
+
+        const dx = finalX - touchStartX;
+        const dy = finalY - touchStartY;
+
+        if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
+            console.log('DEBUG: Touch End - Detected as a tap. Calling handleUserInteractionClick with start coords.');
+            // Pass the original touchstart coordinates for selection
+            handleUserInteractionClick({ clientX: touchStartX, clientY: touchStartY });
+        } else {
+            console.log('DEBUG: Touch End - Detected as a drag/swipe. No selection change.');
+        }
+    }
 }
 
 // Helper function for pinch distance calculation
@@ -409,29 +425,24 @@ function getPinchDistance(event) {
 
 function handleMouseWheel(event) {
     if (event.preventDefault) {
-        event.preventDefault();
+        event.preventDefault(); // Stop default page scroll
     }
 
     const zoomFactor = 0.1;
     const oldScale = scale;
 
-    if (event.deltaY < 0) {
+    if (event.deltaY < 0) { // Zoom in (scroll up)
         scale *= (1 + zoomFactor);
-    } else {
+    } else { // Zoom out (scroll down)
         scale /= (1 + zoomFactor);
     }
 
-    scale = Math.max(0.1, Math.min(scale, 10.0));
+    scale = Math.max(0.1, Math.min(scale, 10.0)); // Clamp scale
 
-    let mouseCanvasX, mouseCanvasY;
-    if (event.clientX !== undefined && event.clientY !== undefined) {
-        const rect = canvas.getBoundingClientRect();
-        mouseCanvasX = event.clientX - rect.left;
-        mouseCanvasY = event.clientY - rect.top;
-    } else {
-        mouseCanvasX = canvas.width / 2;
-        mouseCanvasY = canvas.height / 2;
-    }
+    // Get mouse position relative to canvas for zoom centering
+    const rect = canvas.getBoundingClientRect();
+    const mouseCanvasX = event.clientX - rect.left;
+    const mouseCanvasY = event.clientY - rect.top;
 
     const mouseWorldX = (mouseCanvasX - offsetX) / oldScale;
     const mouseWorldY = (mouseCanvasY - offsetY) / oldScale;
@@ -440,6 +451,7 @@ function handleMouseWheel(event) {
     offsetY = mouseCanvasY - mouseWorldY * scale;
 
     drawGrid(gridData);
+    console.log(`DEBUG: Mouse Wheel - Zoom. deltaY:${event.deltaY}, new scale:${scale}`);
 }
 
 function handlePlacePixelClick() {
@@ -457,8 +469,10 @@ function handleColorChange() {
 function updateSelectedCoordsDisplay() {
     if (selectedPixel.x !== null && selectedPixel.y !== null) {
         selectedCoordsDisplay.textContent = `(${selectedPixel.x}, ${selectedPixel.y})`;
+        console.log('DEBUG: Display updated to show selected pixel:', selectedPixel.x, selectedPixel.y);
     } else {
         selectedCoordsDisplay.textContent = 'None';
+        console.log('DEBUG: Display updated to show no selected pixel (None).');
     }
 }
 
@@ -502,48 +516,45 @@ function setupWebSocket() {
 // --- Initialization ---
 
 async function init() {
-    setCanvasSize(); // This will setup main and live view canvas dimensions
+    setCanvasSize();
 
     gridData = await getGrid();
 
     const gridPixelWidth = GRID_WIDTH * PIXEL_SIZE;
     const gridPixelHeight = GRID_HEIGHT * PIXEL_SIZE;
 
-    // Initial scale calculation to fit the grid somewhat
     let fitScaleX = canvas.width / gridPixelWidth;
     let fitScaleY = canvas.height / gridPixelHeight;
-    scale = Math.min(fitScaleX, fitScaleY) * 0.9; // Fit and zoom out slightly
+    scale = Math.min(fitScaleX, fitScaleY) * 0.9;
     scale = Math.max(scale, 0.1);
 
-    // Center the grid initially
     offsetX = (canvas.width - (gridPixelWidth * scale)) / 2;
     offsetY = (canvas.height - (gridPixelHeight * scale)) / 2;
 
 
     drawGrid(gridData);
-    drawLiveViewGrid(gridData); // Draw live view initially
+    drawLiveViewGrid(gridData);
 
     window.addEventListener('resize', setCanvasSize);
 
     // Mouse Event Listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp); // Now calls unified click handler
+    canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseout', handleMouseUp); // Treat mouse leaving as mouse up
-    // Removed the direct 'click' listener as it's now handled by mouseup/touchend through handleUserInteractionClick
-    // canvas.addEventListener('click', handleCanvasClick);
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
-    // Touch Event Listeners (NEW)
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); // passive: false to allow preventDefault
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });   // passive: false to allow preventDefault
-    canvas.addEventListener('touchend', handleTouchEnd);                       // Calls unified click handler
-    canvas.addEventListener('touchcancel', handleTouchEnd);                    // Treat touch cancel like touchend
+    // Touch Event Listeners
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd);
+    canvas.addEventListener('touchcancel', handleTouchEnd);
 
     colorPicker.addEventListener('input', handleColorChange);
     placePixelBtn.addEventListener('click', handlePlacePixelClick);
-    zoomInBtn.addEventListener('click', () => handleMouseWheel({ deltaY: -1, preventDefault: () => {} }));
-    zoomOutBtn.addEventListener('click', () => handleMouseWheel({ deltaY: 1, preventDefault: () => {} }));
+    zoomInBtn.addEventListener('click', () => handleMouseWheel({ deltaY: -1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
+    zoomOutBtn.addEventListener('click', () => handleMouseWheel({ deltaY: 1, clientX: canvas.width / 2, clientY: canvas.height / 2, preventDefault: () => {} }));
+
 
     updateSelectedCoordsDisplay();
     setupWebSocket();
