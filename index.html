@@ -139,8 +139,8 @@
             display: flex;
             flex-direction: column;
             /* Stack Live View and Pixel Log vertically */
-            align-items: center;
-            /* Center content horizontally */
+            align-items: stretch;
+            /* Changed from center to stretch to allow full width */
             z-index: 5;
             /* Ensure it's above other elements if necessary */
             border-right: 1px solid #555;
@@ -153,10 +153,11 @@
 
         #left-panel h2 {
             /* Changed from h3 to h2 to match HTML */
-            margin-top: 0;
+            margin-top: 25px;
             margin-bottom: 10px;
             /* Adjusted spacing */
             color: #000000;
+            text-align: center;
         }
 
         /* rplaceCanvas styles adjusted to fill its parent #main-content */
@@ -349,31 +350,32 @@
             }
 
             #rplaceCanvas {
-            display: block;
-            background-color: #a3a3a3;
-            cursor: grab;
-            /* Indicate draggable */
-            position: absolute;
-            /* Changed to absolute to fill #main-content */
-            top: 0;
-            left: 0;
-            width: 100%;
-            /* Fill parent */
-            height: 100%;
-            /* Fill parent */
-            z-index: 1;
-            /* Crucial for keeping pixels sharp when scaled */
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            image-rendering: -moz-crisp-edges;
-        }
+                display: block;
+                background-color: #a3a3a3;
+                cursor: grab;
+                /* Indicate draggable */
+                position: absolute;
+                /* Changed to absolute to fill #main-content */
+                top: 0;
+                left: 0;
+                width: 100%;
+                /* Fill parent */
+                height: 100%;
+                /* Fill parent */
+                z-index: 1;
+                /* Crucial for keeping pixels sharp when scaled */
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+                image-rendering: -moz-crisp-edges;
+            }
 
-        .header{
-            display: none;
-        }
-        .neuro {
-            display: flex;
-        }
+            .header {
+                display: none;
+            }
+
+            .neuro {
+                display: flex;
+            }
         }
 
         @media (max-width: 768px) {
@@ -418,13 +420,13 @@
 
                 <span class="text-gray-700 text-lg selected">Selected: <span id="selectedCoords">(None)</span></span>
                 <button id="placePixelBtn"
-                class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 place">
-                Place
-            </button>
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 place">
+                    Place
+                </button>
             </div>
             <h1 class="text-3xl font-bold text-gray-800 text-center neuro">Neuro.Place</h1>
-            
-            
+
+
 
 
         </div>

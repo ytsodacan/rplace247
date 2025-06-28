@@ -199,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx.scale(scale, scale);
             ctx.strokeStyle = 'var(--gd-highlight-color, orange)'; // Default to orange if CSS var not found
             // Line width needs to be adjusted by inverse scale to appear consistent regardless of zoom
-            ctx.lineWidth = 3 / scale; 
+            ctx.lineWidth = 3 / scale;
             ctx.strokeRect(selectedPixel.x * PIXEL_SIZE, selectedPixel.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
             ctx.restore();
         }
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // and inverse transforms, assuming no direct border/padding on canvas itself.
     function getGridCoordsFromScreen(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
-        
+
         // These calculations should be correct if rect.left/top correctly represent the
         // top-left of the canvas's drawing area in screen coordinates.
         const canvasX = clientX - rect.left;
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
         offsetY += dy;
 
         // Round offsets to nearest integer pixel to help alignment
-        offsetX = Math.round(offsetX); 
+        offsetX = Math.round(offsetX);
         offsetY = Math.round(offsetY);
 
         lastMouseX = event.clientX;
@@ -401,7 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetY += dy;
 
             // Round offsets to nearest integer pixel
-            offsetX = Math.round(offsetX); 
+            offsetX = Math.round(offsetX);
             offsetY = Math.round(offsetY);
 
             lastTouchX = event.touches[0].clientX;
@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             offsetY = mouseCanvasY - mouseWorldY * scale;
 
             // Round offsets to nearest integer pixel
-            offsetX = Math.round(offsetX); 
+            offsetX = Math.round(offsetX);
             offsetY = Math.round(offsetY);
 
             initialPinchDistance = currentPinchDistance;
@@ -525,12 +525,48 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateSelectedCoordsDisplay() {
         if (selectedPixel.x !== null && selectedPixel.y !== null) {
             selectedCoordsDisplay.textContent = `(${selectedPixel.x}, ${selectedPixel.y})`;
-            // console.log('DEBUG: Display updated to show selected pixel:', selectedPixel.x, selectedPixel.y);
         } else {
             selectedCoordsDisplay.textContent = 'None';
-            // console.log('DEBUG: Display updated to show no selected pixel (None).');
         }
     }
+
+    // Keyboard controls for desktop: arrow keys to move selection, spacebar to place pixel
+    function handleKeyDown(event) {
+        if (event.defaultPrevented) return; // Do nothing if event already handled
+        switch (event.key) {
+            case 'ArrowUp':
+                if (selectedPixel.y > 0) selectedPixel.y--;
+                break;
+            case 'ArrowDown':
+                if (selectedPixel.y < GRID_HEIGHT - 1) selectedPixel.y++;
+                break;
+            case 'ArrowLeft':
+                if (selectedPixel.x > 0) selectedPixel.x--;
+                break;
+            case 'ArrowRight':
+                if (selectedPixel.x < GRID_WIDTH - 1) selectedPixel.x++;
+                break;
+            case ' ':
+            case 'Spacebar':
+            case 'Space':
+                event.preventDefault();
+                if (selectedPixel.x !== null && selectedPixel.y !== null) {
+                    placePixel(selectedPixel.x, selectedPixel.y, currentColor);
+                }
+                return;
+            default:
+                return; // Exit for other keys
+        }
+        event.preventDefault();
+        // Initialize selection if none
+        if (selectedPixel.x === null || selectedPixel.y === null) {
+            selectedPixel.x = 0;
+            selectedPixel.y = 0;
+        }
+        updateSelectedCoordsDisplay();
+        drawGrid();
+    }
+    // ...existing code...
 
     // --- WebSocket Setup ---
 
@@ -580,7 +616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         socket.on('pixelUpdate', (data) => {
             const { x, y, color } = data;
             // console.log(`Received real-time update: Pixel at (${x}, (${y})) changed to ${color}`);
-            
+
             // 1. Update global gridData
             if (gridData[y] && gridData[y][x] !== undefined) {
                 gridData[y][x] = color;
@@ -640,7 +676,7 @@ document.addEventListener('DOMContentLoaded', () => {
         offscreenCanvas.height = GRID_HEIGHT * PIXEL_SIZE;
         offscreenCtx = offscreenCanvas.getContext('2d');
         // Set image smoothing on the offscreen canvas context to false for crisp pixels
-        offscreenCtx.imageSmoothingEnabled = false; 
+        offscreenCtx.imageSmoothingEnabled = false;
         console.log('Offscreen Canvas created.');
 
         if (liveViewCanvas) {
@@ -652,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
         gridData = await getGrid();
 
         drawFullOffscreenGrid(gridData);
-        
+
         const gridPixelWidth = GRID_WIDTH * PIXEL_SIZE;
         const gridPixelHeight = GRID_HEIGHT * PIXEL_SIZE;
 
@@ -691,23 +727,27 @@ document.addEventListener('DOMContentLoaded', () => {
             customColorSwatch.addEventListener('click', () => { colorPicker.click(); });
         }
         placePixelBtn.addEventListener('click', handlePlacePixelClick);
-        
-        // When simulating wheel, use mouseCanvasX/Y as the center of zoom
-        zoomInBtn.addEventListener('click', () => handleMouseWheel({ 
-            deltaY: -1, 
-            clientX: canvas.getBoundingClientRect().left + canvas.width / 2, // Center of canvas in screen coords
-            clientY: canvas.getBoundingClientRect().top + canvas.height / 2, // Center of canvas in screen coords
-            preventDefault: () => {} 
-        }));
-        zoomOutBtn.addEventListener('click', () => handleMouseWheel({ 
-            deltaY: 1, 
-            clientX: canvas.getBoundingClientRect().left + canvas.width / 2, 
-            clientY: canvas.getBoundingClientRect().top + canvas.height / 2, 
-            preventDefault: () => {} 
-        }));
 
-        const reconnectButton = createReconnectButton();
-        
+        // When simulating wheel, use mouseCanvasX/Y as the center of zoom
+        if (zoomInBtn) {
+            zoomInBtn.addEventListener('click', () => handleMouseWheel({
+                deltaY: -1,
+                clientX: canvas.getBoundingClientRect().left + canvas.width / 2, // Center of canvas in screen coords
+                clientY: canvas.getBoundingClientRect().top + canvas.height / 2, // Center of canvas in screen coords
+                preventDefault: () => { }
+            }));
+        }
+        if (zoomOutBtn) {
+            zoomOutBtn.addEventListener('click', () => handleMouseWheel({
+                deltaY: 1,
+                clientX: canvas.getBoundingClientRect().left + canvas.width / 2,
+                clientY: canvas.getBoundingClientRect().top + canvas.height / 2,
+                preventDefault: () => { }
+            }));
+        }
+
+        window.reconnectButton = createReconnectButton();
+
         updateSelectedCoordsDisplay();
         setupWebSocket();
 
