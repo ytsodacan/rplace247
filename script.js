@@ -136,7 +136,7 @@ async function placePixel(x, y, color) {
         }
 
         console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
-        selectedPixel = { x: null, y: null };
+        // selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
     } catch (error) {
         console.error('Error sending pixel update:', error);
