@@ -1,34 +1,134 @@
+/* Existing body styles */
 body {
     margin: 0;
     overflow: hidden; /* Prevent body scroll, let canvas handle scrolling via pan/zoom */
     background-color: #f0f0f0; /* Light gray background for better contrast with grid */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #333; /* Dark text for contrast on light background */
+    display: flex; /* Use flexbox for body to manage layout easily */
+    flex-direction: column; /* Stack header/footer if any, and then app-container */
+    height: 100vh; /* Ensure body takes full viewport height */
 }
 
-#rplaceCanvas {
+/* New container for the main application area (left panel + main canvas) */
+#app-container {
+    display: flex; /* Flexbox for main content area */
+    flex-grow: 1; /* Allow it to take available height */
+    overflow: hidden; /* Prevent scrollbars from app-container itself */
+    position: relative; /* For absolutely positioned canvas inside it */
+}
+
+/* Left panel for the live view */
+#left-panel {
+    width: 260px; /* Fixed width for the live view panel (500/2 + padding) */
+    background-color: #2b2b2b;
+    color: #eee;
+    padding: 10px;
+    box-sizing: border-box; /* Include padding in width */
+    display: flex;
+    flex-direction: column; /* Stack Live View and Pixel Log vertically */
+    align-items: center; /* Center content horizontally */
+    z-index: 5; /* Ensure it's above other elements if necessary */
+    border-right: 1px solid #555;
+    overflow-y: auto; /* In case content grows (not likely for this, but good practice) */
+    flex-shrink: 0; /* Prevent it from shrinking */
+}
+
+#left-panel h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #9aff9a;
+}
+
+/* Live view canvas itself */
+#liveViewCanvas {
+    width: 250px; /* 500 grid cells / 2 = 250px wide */
+    height: 250px; /* 500 grid cells / 2 = 250px high */
+    border: 1px solid #555;
+    background-color: #1a1a1a; /* Dark background for live view */
     display: block; /* Remove extra space below canvas */
-    background-color: #2b2b2b; /* A slightly darker background for the canvas itself */
+    /* Crucial for keeping pixels sharp when scaled down */
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+}
+
+/* NEW: Styles for the Pixel Chat Log */
+.pixel-chat-container {
+    width: 100%; /* Fill the left panel */
+    margin-top: 15px; /* Space from Live View */
+    display: flex;
+    flex-direction: column; /* Stack heading and log area */
+    flex-grow: 1; /* Allow it to take up remaining vertical space in the left panel */
+    min-height: 0; /* Important for flex items with overflow */
+}
+
+.pixel-chat-container h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #9aff9a;
+}
+
+#pixelChatLog {
+    background-color: #1a1a1a; /* Dark background */
+    border: 1px solid #555;
+    padding: 10px;
+    color: #eee;
+    font-family: monospace; /* Monospace font for readability of coords */
+    font-size: 0.9em;
+    overflow-y: auto; /* Make it scrollable */
+    flex-grow: 1; /* Make it take up available vertical space */
+    min-height: 50px; /* Minimum height for visibility, can be adjusted */
+    max-height: 300px; /* Example max height, adjust as needed */
+    border-radius: 5px;
+    line-height: 1.4; /* Spacing between lines */
+}
+
+#pixelChatLog p {
+    margin: 0; /* Remove default paragraph margins */
+    padding: 2px 0; /* Small vertical padding for each log entry */
+    word-wrap: break-word; /* Wrap long lines if they somehow occur */
+}
+
+#pixelChatLog p:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.05); /* Slight stripe for readability */
+}
+
+
+/* Main content area for the rplaceCanvas */
+#main-content {
+    flex-grow: 1; /* Main content area takes remaining space */
+    position: relative; /* Crucial for absolute positioning of rplaceCanvas inside */
+    overflow: hidden; /* Hide any overflow if canvas goes beyond bounds */
+}
+
+/* rplaceCanvas styles adjusted to fill its parent #main-content */
+#rplaceCanvas {
+    display: block;
+    background-color: #2b2b2b;
     cursor: grab; /* Indicate draggable */
-    position: absolute; /* Take canvas out of flow, let JS position it */
+    position: absolute; /* Changed to absolute to fill #main-content */
     top: 0;
     left: 0;
-    z-index: 1; /* Ensure canvas is above other elements if any */
+    width: 100%; /* Fill parent */
+    height: 100%; /* Fill parent */
+    z-index: 1;
 }
 
+/* Existing bottom-bar, controls, etc. styles */
 .bottom-bar {
-    position: fixed;
+    position: relative;
     bottom: 0;
     left: 0;
     width: 100%;
-    background-color: #333; /* Darker background for the bar */
+    background-color: #333;
     color: #eee;
     padding: 10px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-sizing: border-box; /* Include padding in width */
-    z-index: 10; /* Ensure bar is above canvas */
+    box-sizing: border-box;
+    z-index: 10;
     border-top: 1px solid #555;
 }
 

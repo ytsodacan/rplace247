@@ -3,15 +3,31 @@
 const BACKEND_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 
+const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
-const PIXEL_SIZE = 10; // Base size of each pixel in grid coordinates
+// --- Live View Configuration ---
+const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // For a 500x500 grid, live view will be 250x250 pixels.
+const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
+const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
 
-// --- DOM Elements ---
+
+// --- DOM Elements (Main Canvas) ---
 const canvas = document.getElementById('rplaceCanvas');
 const ctx = canvas.getContext('2d');
-console.log('--- Debug: Canvas Context ---');
+console.log('--- Debug: Main Canvas Context ---');
 console.log('Canvas element:', canvas);
 console.log('Canvas 2D context:', ctx);
+
+// --- DOM Elements (Live View Canvas) ---
+const liveViewCanvas = document.getElementById('liveViewCanvas');
+const liveViewCtx = liveViewCanvas.getContext('2d');
+console.log('--- Debug: Live View Canvas Context ---');
+console.log('Live View Canvas element:', liveViewCanvas);
+console.log('Live View Canvas 2D context:', liveViewCtx);
+
+// --- NEW: DOM Element for Pixel Chat Log ---
+const pixelChatLog = document.getElementById('pixelChatLog');
+
 
 const colorPicker = document.getElementById('colorPicker');
 const placePixelBtn = document.getElementById('placePixelBtn');
@@ -28,7 +44,7 @@ let selectedPixel = { x: null, y: null };
 const GRID_WIDTH = 500;
 const GRID_HEIGHT = 500;
 
-// --- Viewport Transform State (for Pan & Zoom) ---
+// --- Viewport Transform State (for Main Canvas Pan & Zoom) ---
 let scale = 1.0;
 let offsetX = 0;
 let offsetY = 0;
@@ -42,19 +58,37 @@ let lastClickY = 0; // To differentiate click from drag
 
 // --- Canvas Setup and Resizing ---
 function setCanvasSize() {
-    canvas.width = window.innerWidth;
-    const bottomBar = document.querySelector('.bottom-bar');
-    const bottomBarHeight = bottomBar ? bottomBar.offsetHeight : 0;
-    canvas.height = window.innerHeight - bottomBarHeight;
+    // Get dimensions of the parent container for rplaceCanvas, which is #main-content
+    const mainContentDiv = document.getElementById('main-content');
+    if (mainContentDiv) {
+        canvas.width = mainContentDiv.clientWidth;
+        canvas.height = mainContentDiv.clientHeight;
+        console.log('--- Debug: rplaceCanvas Size ---');
+        console.log('Calculated rplaceCanvas Width:', canvas.width, 'Calculated rplaceCanvas Height:', canvas.height);
+    } else {
+        // Fallback for initial load if main-content isn't fully rendered or found (less likely with DOMContentLoaded)
+        const leftPanel = document.getElementById('left-panel');
+        const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
+        canvas.width = window.innerWidth - leftPanelWidth;
 
-    console.log('--- Debug: Canvas Size ---');
-    console.log('Window Inner Width:', window.innerWidth, 'Window Inner Height:', window.innerHeight);
-    console.log('Bottom Bar Height:', bottomBarHeight);
-    console.log('Calculated Canvas Width:', canvas.width, 'Calculated Canvas Height:', canvas.height);
+        const bottomBar = document.querySelector('.bottom-bar');
+        const bottomBarHeight = bottomBar ? bottomBar.offsetHeight : 0;
+        canvas.height = window.innerHeight - bottomBarHeight;
+        console.log('--- Debug: Fallback Canvas Size Calculation ---');
+        console.log('Calculated Canvas Width:', canvas.width, 'Calculated Canvas Height:', canvas.height);
+    }
+
+    // Set fixed dimensions for live view canvas attributes, for crisp rendering
+    if (liveViewCanvas) {
+        liveViewCanvas.width = LIVE_VIEW_CANVAS_WIDTH;
+        liveViewCanvas.height = LIVE_VIEW_CANVAS_HEIGHT;
+    }
+
 
     if (gridData && gridData.length > 0) {
-        console.log('setCanvasSize: Redrawing grid due to resize and existing data.');
+        console.log('setCanvasSize: Redrawing grids due to resize and existing data.');
         drawGrid(gridData);
+        drawLiveViewGrid(gridData); // Also redraw live view on resize
     } else {
         console.log('setCanvasSize: Grid data not yet available for redraw.');
     }
@@ -103,7 +137,7 @@ async function placePixel(x, y, color) {
     }
 }
 
-// --- Canvas Drawing Functions ---
+// --- Canvas Drawing Functions (Main View) ---
 
 function drawPixel(x, y, color) {
     ctx.fillStyle = color;
@@ -111,7 +145,7 @@ function drawPixel(x, y, color) {
 }
 
 function drawGrid(grid) {
-    console.log('--- Debug: drawGrid Call ---');
+    console.log('--- Debug: drawGrid Call (Main Canvas) ---');
     console.log('Clearing canvas from (0,0) to (' + canvas.width + ',' + canvas.height + ')');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -146,6 +180,51 @@ function drawHighlight(x, y) {
     ctx.strokeRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
 }
 
+// --- Canvas Drawing Functions (Live View) ---
+function drawLiveViewGrid(grid) {
+    if (!liveViewCtx) {
+        console.error("Live View Canvas Context not available.");
+        return;
+    }
+
+    // Clear the live view canvas
+    liveViewCtx.clearRect(0, 0, liveViewCanvas.width, liveViewCanvas.height);
+
+    for (let y = 0; y < GRID_HEIGHT; y++) {
+        for (let x = 0; x < GRID_WIDTH; x++) {
+            if (grid[y] && grid[y][x] !== undefined) {
+                liveViewCtx.fillStyle = grid[y][x];
+                // Draw pixels for live view. Each grid cell becomes 1 pixel on the live view canvas.
+                // We use the LIVE_VIEW_PIXEL_SIZE_FACTOR to map original grid coords to live view coords.
+                liveViewCtx.fillRect(
+                    x / LIVE_VIEW_PIXEL_SIZE_FACTOR,
+                    y / LIVE_VIEW_PIXEL_SIZE_FACTOR,
+                    1, // Always draw a 1x1 pixel in live view's coordinate system
+                    1
+                );
+            }
+        }
+    }
+    console.log('Live View Grid drawn.');
+}
+
+// --- NEW: Pixel Log Function ---
+function addPixelLogEntry(x, y, color) {
+    if (!pixelChatLog) {
+        console.error("Pixel chat log element not found.");
+        return;
+    }
+
+    const logEntry = document.createElement('p');
+    // Format the message: (X, Y) set to #COLOR
+    logEntry.innerHTML = `(<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
+    pixelChatLog.appendChild(logEntry);
+
+    // Auto-scroll to the bottom of the log
+    pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
+}
+
+
 // --- Event Handlers ---
 
 function getGridCoordsFromScreen(clientX, clientY) {
@@ -168,7 +247,7 @@ function getGridCoordsFromScreen(clientX, clientY) {
 function handleCanvasClick(event) {
     // Check if it was a drag or a click
     if (Math.abs(event.clientX - lastClickX) > 5 || Math.abs(event.clientY - lastClickY) > 5) {
-        console.log('DEBUG: Mouse click suppressed (was likely a drag).'); // <--- ADD THIS LINE
+        console.log('DEBUG: Mouse click suppressed (was likely a drag).');
         return; // It was a drag, not a click, so don't select pixel
     }
 
@@ -178,12 +257,12 @@ function handleCanvasClick(event) {
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Pixel selected via click:', coords.x, coords.y); // <--- ADD THIS LINE
+        console.log('DEBUG: Pixel selected via click:', coords.x, coords.y);
     } else {
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Clicked outside grid bounds, selected pixel cleared.'); // <--- ADD THIS LINE
+        console.log('DEBUG: Clicked outside grid bounds, selected pixel cleared.');
     }
 }
 
@@ -194,7 +273,7 @@ function handleMouseDown(event) {
     lastClickX = event.clientX; // Store click position on mouse down
     lastClickY = event.clientY; // Store click position on mouse down
     canvas.classList.add('grabbing');
-    console.log('DEBUG: Mouse Down - isDragging:', isDragging, 'ClientX:', event.clientX, 'ClientY:', event.clientY); // <--- ADD THIS LINE
+    console.log('DEBUG: Mouse Down - isDragging:', isDragging, 'ClientX:', event.clientX, 'ClientY:', event.clientY);
 }
 
 function handleMouseMove(event) {
@@ -210,13 +289,13 @@ function handleMouseMove(event) {
     lastMouseY = event.clientY;
 
     drawGrid(gridData);
-    console.log('DEBUG: Mouse Move - offsetX:', offsetX, 'offsetY:', offsetY, 'dx:', dx, 'dy:', dy); // <--- ADD THIS LINE
+    console.log('DEBUG: Mouse Move - offsetX:', offsetX, 'offsetY:', offsetY, 'dx:', dx, 'dy:', dy);
 }
 
 function handleMouseUp() {
     isDragging = false;
     canvas.classList.remove('grabbing');
-    console.log('DEBUG: Mouse Up - isDragging:', isDragging); // <--- ADD THIS LINE
+    console.log('DEBUG: Mouse Up - isDragging:', isDragging);
 }
 
 function handleMouseWheel(event) {
@@ -239,7 +318,7 @@ function handleMouseWheel(event) {
     if (event.clientX !== undefined && event.clientY !== undefined) {
         const rect = canvas.getBoundingClientRect();
         mouseCanvasX = event.clientX - rect.left;
-        mouseCanvasY = event.clientY - rect.top; // Fixed typo here
+        mouseCanvasY = event.clientY - rect.top;
     } else {
         mouseCanvasX = canvas.width / 2;
         mouseCanvasY = canvas.height / 2;
@@ -281,6 +360,7 @@ function setupWebSocket() {
 
     socket.on('connect', () => {
         console.log('Connected to WebSocket server!');
+        addPixelLogEntry('System', 'Connected', '#00ff00'); // Log connection
     });
 
     socket.on('pixelUpdate', (data) => {
@@ -292,14 +372,18 @@ function setupWebSocket() {
         }
 
         drawGrid(gridData);
+        drawLiveViewGrid(gridData);
+        addPixelLogEntry(x, y, color); // <--- IMPORTANT: Add to pixel log
     });
 
     socket.on('disconnect', () => {
         console.log('Disconnected from WebSocket server. Attempting to reconnect...');
+        addPixelLogEntry('System', 'Disconnected', '#ff0000'); // Log disconnection
     });
 
     socket.on('connect_error', (error) => {
         console.error('WebSocket connection error:', error);
+        addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900'); // Log errors
     });
 }
 
@@ -307,7 +391,7 @@ function setupWebSocket() {
 // --- Initialization ---
 
 async function init() {
-    setCanvasSize();
+    setCanvasSize(); // This will setup main and live view canvas dimensions
 
     gridData = await getGrid();
 
@@ -318,7 +402,7 @@ async function init() {
     let fitScaleX = canvas.width / gridPixelWidth;
     let fitScaleY = canvas.height / gridPixelHeight;
     scale = Math.min(fitScaleX, fitScaleY) * 0.9; // Fit and zoom out slightly
-    scale = Math.max(scale, 0.1); // Prevent too much zoom out initially
+    scale = Math.max(scale, 0.1);
 
     // Center the grid initially
     offsetX = (canvas.width - (gridPixelWidth * scale)) / 2;
@@ -326,6 +410,7 @@ async function init() {
 
 
     drawGrid(gridData);
+    drawLiveViewGrid(gridData); // Draw live view initially
 
     window.addEventListener('resize', setCanvasSize);
     canvas.addEventListener('mousedown', handleMouseDown);
