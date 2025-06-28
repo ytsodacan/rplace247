@@ -4,6 +4,13 @@ const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 
 const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
+// gate the log calls behind debug flag
+const DEBUG = false; // logs wreck performance if going off constantly
+if (!DEBUG) {
+    console.log = () => {};
+    console.trace = () => {};
+}
+
 // --- Live View Configuration ---
 const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // For a 500x500 grid, live view will be 250x250 pixels.
 const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // Should be 250
@@ -42,6 +49,9 @@ let gridData = [];
 let selectedPixel = { x: null, y: null }; // Initialize to null explicitly for clarity
 
 let socket = null; // socket.io instance is global & held here
+
+// dirty flag = redraw needed next tick
+let dirty = true;
 
 // --- Canvas Dimensions (Must match backend grid dimensions) ---
 const GRID_WIDTH = 500;
@@ -97,9 +107,8 @@ function setCanvasSize() {
 
 
     if (gridData && gridData.length > 0) {
-        console.log('setCanvasSize: Redrawing grids due to resize and existing data.');
-        drawGrid(gridData);
-        drawLiveViewGrid(gridData); // Also redraw live view on resize
+        console.log('setCanvasSize: Marking dirty due to resize with existing data.');
+        dirty = true; // redraw next tick instead of immediately
     } else {
         console.log('setCanvasSize: Grid data not yet available for redraw.');
     }
@@ -213,6 +222,16 @@ function drawLiveViewGrid(grid) {
     // console.log('Live View Grid drawn.'); // Commented for less noise
 }
 
+// rAF render loop (dirty flag)
+function tick() {
+    if (dirty && gridData && gridData.length) {
+        drawGrid(gridData);
+        drawLiveViewGrid(gridData);
+        dirty = false;
+    }
+    requestAnimationFrame(tick);
+}
+
 // --- Pixel Log Function ---
 function addPixelLogEntry(x, y, color) {
     if (!pixelChatLog) {
@@ -263,7 +282,7 @@ function handleUserInteractionClick(event) {
         }
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
-        drawGrid(gridData);
+        dirty = true; 
     } else {
         if (selectedPixel.x !== null) { // Only log if it was previously selected
             console.log('DEBUG: SELECTED PIXEL CLEARED!', {old: selectedPixel, new: null});
@@ -273,7 +292,7 @@ function handleUserInteractionClick(event) {
         }
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
-        drawGrid(gridData);
+        dirty = true; 
     }
 }
 
@@ -302,8 +321,7 @@ function handleMouseMove(event) {
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
 
-    drawGrid(gridData);
-    // console.log(`DEBUG: Mouse Move - Panning. dx:${dx}, dy:${dy}, offsetX:${offsetX}, offsetY:${offsetY}`); // Commented for less noise
+    dirty = true; 
 }
 
 function handleMouseUp(event) {
@@ -359,8 +377,7 @@ function handleTouchMove(event) {
         lastTouchX = event.touches[0].clientX;
         lastTouchY = event.touches[0].clientY;
 
-        drawGrid(gridData);
-        // console.log(`DEBUG: Touch Move - Panning. dx:${dx}, dy:${dy}, offsetX:${offsetX}, offsetY:${offsetY}`); // Commented for less noise
+        dirty = true; 
     } else if (event.touches.length === 2 && initialPinchDistance !== null) { // Two touches for pinch-to-zoom
         const currentPinchDistance = getPinchDistance(event);
         const scaleChange = currentPinchDistance / initialPinchDistance;
@@ -383,10 +400,9 @@ function handleTouchMove(event) {
         offsetY = canvasY - mouseWorldY * scale;
 
         initialPinchDistance = currentPinchDistance; // Update initial for next move event
-        drawGrid(gridData);
+        dirty = true; 
         console.log(`DEBUG: Touch Move - Pinch-to-zoom. scale:${scale}, currentPinchDistance:${currentPinchDistance}`);
     } else {
-        // console.log(`DEBUG: Touch Move - No action. Touches:${event.touches.length}, isDragging:${isDragging}, initialPinchDistance:${initialPinchDistance}`); // Commented for less noise
     }
 }
 
@@ -452,7 +468,7 @@ function handleMouseWheel(event) {
     offsetX = mouseCanvasX - mouseWorldX * scale;
     offsetY = mouseCanvasY - mouseWorldY * scale;
 
-    drawGrid(gridData);
+    dirty = true; 
     console.log(`DEBUG: Mouse Wheel - Zoom. deltaY:${event.deltaY}, new scale:${scale}`);
 }
 
@@ -527,8 +543,7 @@ function setupWebSocket() {
         if (gridData[y] && gridData[y][x] !== undefined) {
             gridData[y][x] = color;
         }
-        drawGrid(gridData);
-        drawLiveViewGrid(gridData);
+        dirty = true; 
         addPixelLogEntry(x, y, color);
     });
 
@@ -566,9 +581,8 @@ async function init() {
     offsetX = (canvas.width - (gridPixelWidth * scale)) / 2;
     offsetY = (canvas.height - (gridPixelHeight * scale)) / 2;
 
-
-    drawGrid(gridData);
-    drawLiveViewGrid(gridData);
+    // Initial render in the first rAF tick
+    dirty = true;
 
     window.addEventListener('resize', setCanvasSize);
 
@@ -595,6 +609,9 @@ async function init() {
     setupWebSocket();
 
     console.log('Frontend initialized!');
+
+    // start the rAF loop
+    requestAnimationFrame(tick);
 }
 
 document.addEventListener('DOMContentLoaded', init);
