@@ -483,7 +483,7 @@ function updateSelectedCoordsDisplay() {
 
 function createReconnectButton() {
     const btn = document.createElement('button');
-    btn.id = 'reconnectBtn';
+    btn.id = 'reconnectButton';
     btn.textContent = 'Reconnect';
     btn.style.display = 'none'; 
     btn.style.padding = '8px 15px';
@@ -510,7 +510,7 @@ function createReconnectButton() {
     return btn;
 }
 
-const reconnectBtn = createReconnectButton();
+const reconnectButton = createReconnectButton();
 
 function setupWebSocket() {
     socket = io(WEBSOCKET_URL, { reconnection: false });
@@ -518,8 +518,8 @@ function setupWebSocket() {
     socket.on('connect', () => {
         console.log('Connected to backend');
         addPixelLogEntry('System', 'Connected', '#00ff00');
-        reconnectBtn.style.display = 'none';
-        reconnectBtn.disabled = false;
+        reconnectButton.style.display = 'none';
+        reconnectButton.disabled = false;
     });
 
     socket.on('pixelUpdate', (data) => {
@@ -537,14 +537,14 @@ function setupWebSocket() {
         console.log('Disconnected from backend. Pausing refresh.');
         alert('Backend unavailable. Press the reconnect button to retry.');
         addPixelLogEntry('System', 'Disconnected', '#ff0000');
-        reconnectBtn.style.display = 'inline-block';
+        reconnectButton.style.display = 'inline-block';
     });
 
     socket.on('connect_error', (error) => {
         console.error('Backend connection error:', error);
         alert('Backend unavailable. Press the reconnect button to retry.');
         addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900');
-        reconnectBtn.style.display = 'inline-block';
+        reconnectButton.style.display = 'inline-block';
     });
 }
 
