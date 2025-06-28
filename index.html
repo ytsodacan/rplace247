@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Neurosama/Place</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="preload" href="style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="style.css"></noscript>
 </head>
 <body>
     <div id="app-container">
@@ -44,7 +46,7 @@
         </div>
     </div>
 
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script src="script.js"></script>
+    <script defer src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script defer src="script.js"></script>
 </body>
 </html>
