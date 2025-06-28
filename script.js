@@ -1,5 +1,4 @@
 // --- Configuration ---
-
 const BACKEND_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 
@@ -25,7 +24,7 @@ console.log('--- Debug: Live View Canvas Context ---');
 console.log('Live View Canvas element:', liveViewCanvas);
 console.log('Live View Canvas 2D context:', liveViewCtx);
 
-// --- NEW: DOM Element for Pixel Chat Log ---
+// --- DOM Element for Pixel Chat Log ---
 const pixelChatLog = document.getElementById('pixelChatLog');
 
 
@@ -49,11 +48,19 @@ let scale = 1.0;
 let offsetX = 0;
 let offsetY = 0;
 
+// --- Mouse Interaction State ---
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
-let lastClickX = 0; // To differentiate click from drag
-let lastClickY = 0; // To differentiate click from drag
+let lastClickX = 0; // To differentiate mouse click from drag
+let lastClickY = 0; // To differentiate mouse click from drag
+
+// --- Touch Interaction State (NEW) ---
+let initialPinchDistance = null; // For pinch-to-zoom
+let lastTouchX = 0; // For single-touch drag
+let lastTouchY = 0; // For single-touch drag
+let touchStartX = 0; // For touch tap vs drag detection
+let touchStartY = 0; // For touch tap vs drag detection
 
 
 // --- Canvas Setup and Resizing ---
@@ -208,7 +215,7 @@ function drawLiveViewGrid(grid) {
     console.log('Live View Grid drawn.');
 }
 
-// --- NEW: Pixel Log Function ---
+// --- Pixel Log Function ---
 function addPixelLogEntry(x, y, color) {
     if (!pixelChatLog) {
         console.error("Pixel chat log element not found.");
@@ -225,7 +232,7 @@ function addPixelLogEntry(x, y, color) {
 }
 
 
-// --- Event Handlers ---
+// --- Event Handlers (Mouse & Touch) ---
 
 function getGridCoordsFromScreen(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -244,28 +251,38 @@ function getGridCoordsFromScreen(clientX, clientY) {
     return null;
 }
 
-function handleCanvasClick(event) {
-    // Check if it was a drag or a click
-    if (Math.abs(event.clientX - lastClickX) > 5 || Math.abs(event.clientY - lastClickY) > 5) {
-        console.log('DEBUG: Mouse click suppressed (was likely a drag).');
-        return; // It was a drag, not a click, so don't select pixel
+// Unified click/tap handler
+function handleUserInteractionClick(event) {
+    const currentX = event.clientX;
+    const currentY = event.clientY;
+
+    // Differentiate click/tap from drag based on movement threshold
+    // Mouse clicks use lastClickX/Y
+    // Touch taps use touchStartX/Y
+    const isDragMovement = (event.type === 'mouseup' && (Math.abs(currentX - lastClickX) > 5 || Math.abs(currentY - lastClickY) > 5)) ||
+                           (event.type === 'touchend' && (Math.abs(currentX - touchStartX) > 10 || Math.abs(currentY - touchStartY) > 10));
+
+    if (isDragMovement) {
+        console.log('DEBUG: Interaction suppressed (was likely a drag/zoom).');
+        return;
     }
 
-    const coords = getGridCoordsFromScreen(event.clientX, event.clientY);
+    const coords = getGridCoordsFromScreen(currentX, currentY);
 
     if (coords) {
         selectedPixel = { x: coords.x, y: coords.y };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Pixel selected via click:', coords.x, coords.y);
+        console.log('DEBUG: Pixel selected via click/tap:', coords.x, coords.y);
     } else {
         selectedPixel = { x: null, y: null };
         updateSelectedCoordsDisplay();
         drawGrid(gridData);
-        console.log('DEBUG: Clicked outside grid bounds, selected pixel cleared.');
+        console.log('DEBUG: Clicked/tapped outside grid bounds, selected pixel cleared.');
     }
 }
 
+// Mouse Handlers
 function handleMouseDown(event) {
     isDragging = true;
     lastMouseX = event.clientX;
@@ -292,11 +309,103 @@ function handleMouseMove(event) {
     console.log('DEBUG: Mouse Move - offsetX:', offsetX, 'offsetY:', offsetY, 'dx:', dx, 'dy:', dy);
 }
 
-function handleMouseUp() {
+function handleMouseUp(event) {
     isDragging = false;
     canvas.classList.remove('grabbing');
     console.log('DEBUG: Mouse Up - isDragging:', isDragging);
+    // Call unified click handler to check if it was a click (not a drag)
+    handleUserInteractionClick(event);
 }
+
+// Touch Handlers (NEW)
+function handleTouchStart(event) {
+    // Prevent default browser actions like scrolling/zooming on the canvas
+    event.preventDefault();
+
+    if (event.touches.length === 1) { // Single touch for dragging
+        isDragging = true;
+        lastTouchX = event.touches[0].clientX;
+        lastTouchY = event.touches[0].clientY;
+        touchStartX = event.touches[0].clientX; // Store for tap detection
+        touchStartY = event.touches[0].clientY; // Store for tap detection
+        canvas.classList.add('grabbing');
+        initialPinchDistance = null; // Ensure pinch state is reset for single touch
+        console.log('DEBUG: Touch Start - Single touch for drag.');
+    } else if (event.touches.length === 2) { // Two touches for pinch-to-zoom
+        isDragging = false; // Disable single-touch drag during pinch
+        initialPinchDistance = getPinchDistance(event);
+        console.log('DEBUG: Touch Start - Two touches for zoom.');
+    }
+}
+
+function handleTouchMove(event) {
+    // Prevent default browser scroll/zoom during touch move
+    event.preventDefault();
+
+    if (event.touches.length === 1 && isDragging) { // Single touch for dragging
+        const dx = event.touches[0].clientX - lastTouchX;
+        const dy = event.touches[0].clientY - lastTouchY;
+
+        offsetX += dx;
+        offsetY += dy;
+
+        lastTouchX = event.touches[0].clientX;
+        lastTouchY = event.touches[0].clientY;
+
+        drawGrid(gridData);
+        console.log('DEBUG: Touch Move - Dragging.');
+    } else if (event.touches.length === 2 && initialPinchDistance !== null) { // Two touches for pinch-to-zoom
+        const currentPinchDistance = getPinchDistance(event);
+        // Calculate scale change relative to the initial pinch distance
+        const scaleChange = currentPinchDistance / initialPinchDistance;
+
+        const oldScale = scale;
+        scale *= scaleChange; // Apply zoom factor
+
+        // Clamp scale to prevent too much zoom in/out
+        scale = Math.max(0.1, Math.min(scale, 10.0));
+
+        // Recalculate offsets to zoom around the center of the two touches
+        const touchCenterX = (event.touches[0].clientX + event.touches[1].clientX) / 2;
+        const touchCenterY = (event.touches[0].clientY + event.touches[1].clientY) / 2;
+
+        const rect = canvas.getBoundingClientRect();
+        const canvasX = touchCenterX - rect.left;
+        const canvasY = touchCenterY - rect.top;
+
+        const mouseWorldX = (canvasX - offsetX) / oldScale;
+        const mouseWorldY = (canvasY - offsetY) / oldScale;
+
+        offsetX = canvasX - mouseWorldX * scale;
+        offsetY = canvasY - mouseWorldY * scale;
+
+        initialPinchDistance = currentPinchDistance; // Update initial for next move event
+        drawGrid(gridData);
+        console.log('DEBUG: Touch Move - Pinch-to-zoom.');
+    }
+}
+
+function handleTouchEnd(event) {
+    canvas.classList.remove('grabbing');
+    isDragging = false;
+    initialPinchDistance = null; // Reset pinch state
+
+    // Call unified click handler to check if it was a tap (not a drag/zoom)
+    // Use changedTouches[0] as it represents the touch that just ended
+    handleUserInteractionClick({ clientX: event.changedTouches[0].clientX, clientY: event.changedTouches[0].clientY, type: 'touchend' });
+    console.log('DEBUG: Touch End - Processed.');
+}
+
+// Helper function for pinch distance calculation
+function getPinchDistance(event) {
+    const touch1 = event.touches[0];
+    const touch2 = event.touches[1];
+    return Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+    );
+}
+
 
 function handleMouseWheel(event) {
     if (event.preventDefault) {
@@ -415,12 +524,21 @@ async function init() {
     drawLiveViewGrid(gridData); // Draw live view initially
 
     window.addEventListener('resize', setCanvasSize);
+
+    // Mouse Event Listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
-    canvas.addEventListener('mouseup', handleMouseUp);
-    canvas.addEventListener('mouseout', handleMouseUp); // Crucial for when mouse leaves canvas while dragging
-    canvas.addEventListener('click', handleCanvasClick);
+    canvas.addEventListener('mouseup', handleMouseUp); // Now calls unified click handler
+    canvas.addEventListener('mouseout', handleMouseUp); // Treat mouse leaving as mouse up
+    // Removed the direct 'click' listener as it's now handled by mouseup/touchend through handleUserInteractionClick
+    // canvas.addEventListener('click', handleCanvasClick);
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
+
+    // Touch Event Listeners (NEW)
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); // passive: false to allow preventDefault
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });   // passive: false to allow preventDefault
+    canvas.addEventListener('touchend', handleTouchEnd);                       // Calls unified click handler
+    canvas.addEventListener('touchcancel', handleTouchEnd);                    // Treat touch cancel like touchend
 
     colorPicker.addEventListener('input', handleColorChange);
     placePixelBtn.addEventListener('click', handlePlacePixelClick);
