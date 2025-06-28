@@ -1,30 +1,26 @@
-// config stuff
 const BACKEND_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
 
-const PIXEL_SIZE = 10; // how big is a pixel, in grid world
+const PIXEL_SIZE = 10; 
 
 // gate the log calls behind debug flag
-const DEBUG = false; // logs will absolutely nuke perf if you let them just go
+const DEBUG = false;
 if (!DEBUG) {
     console.log = () => {};
     console.trace = () => {};
 }
 
-// live view stuff, just for the little minimap
-const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; // so 500x500 grid becomes 250x250
-const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // 250
-const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; // 250
+// for the minimap
+const LIVE_VIEW_PIXEL_SIZE_FACTOR = 2; 
+const LIVE_VIEW_CANVAS_WIDTH = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; 
+const LIVE_VIEW_CANVAS_HEIGHT = 500 / LIVE_VIEW_PIXEL_SIZE_FACTOR; 
 
-const CLICK_THRESHOLD = 5; // if you move less than this, it's a click/tap
+const CLICK_THRESHOLD = 5; 
 
 
 // main canvas DOM refs
 const canvas = document.getElementById('neuroCanvas');
 const ctx = canvas.getContext('2d');
-console.log('--- Debug: Main Canvas Context ---');
-console.log('neuroCanvas element:', canvas);
-console.log('neuroCanvas 2D context:', ctx);
 
 // highlight canvas (absolute overlay) never intercepts pointer events
 const highlightCanvas = document.getElementById('neuroHighlightCanvas');
@@ -49,19 +45,90 @@ const selectedCoordsDisplay = document.getElementById('selectedCoords');
 const zoomInBtn = document.getElementById('zoomInBtn');
 const zoomOutBtn = document.getElementById('zoomOutBtn');
 
-// global state, nothing fancy
+// global state
 let currentColor = colorPicker.value;
 let gridData = [];
-let selectedPixel = { x: null, y: null }; // null means nothing picked
+let selectedPixel = { x: null, y: null }; 
 
-let socket = null; // socket.io instance, just hanging out here
+let socket = null; 
 
-let dirty = true; // if true, redraw next tick for main grid
-let highlightDirty = true; // if true, redraw highlight layer
+let dirty = true; 
+let highlightDirty = true; 
 
-// grid size, gotta match backend
 const GRID_WIDTH = 500;
 const GRID_HEIGHT = 500;
+
+// off-screen canvas & color handling for fast blit
+const offCanvas = document.createElement('canvas');
+offCanvas.width = GRID_WIDTH; 
+offCanvas.height = GRID_HEIGHT;
+const offCtx = offCanvas.getContext('2d');
+offCtx.imageSmoothingEnabled = false;
+
+const offImageData = new ImageData(GRID_WIDTH, GRID_HEIGHT);
+const offBuf32     = new Uint32Array(offImageData.data.buffer); // was recreating every time oof
+
+// hex to 0xAARRGGBB
+const colorCache = new Map();
+function parseColor(hex) {
+    if (!hex) return 0; // transparent if everything breaks
+
+    const cached = colorCache.get(hex);
+    if (cached !== undefined) return cached;
+
+    let h = hex.startsWith('#') ? hex.slice(1) : hex;
+
+    // expand smol hex to big hex
+    if (h.length === 3 || h.length === 4) {
+        h = [...h].map(ch => ch + ch).join('');
+    }
+
+    let r = 0, g = 0, b = 0, a = 0xFF;
+
+    if (h.length === 6) {
+        r = parseInt(h.slice(0, 2), 16);
+        g = parseInt(h.slice(2, 4), 16);
+        b = parseInt(h.slice(4, 6), 16);
+    } else if (h.length === 8) {
+        const headAlpha = parseInt(h.slice(0, 2), 16);
+        const tailAlpha = parseInt(h.slice(6), 16);
+
+        if (headAlpha < 0x20) { 
+            a = headAlpha;
+            r = parseInt(h.slice(2, 4), 16);
+            g = parseInt(h.slice(4, 6), 16);
+            b = tailAlpha;
+        } else {
+            a = tailAlpha;
+            r = parseInt(h.slice(0, 2), 16);
+            g = parseInt(h.slice(2, 4), 16);
+            b = parseInt(h.slice(4, 6), 16);
+        }
+    } else {
+        console.warn('parseColor: unexpected hex length', hex);
+    }
+
+    // pack into BGRA (little-endian uint32 type)
+    const argb = (a << 24) | (b << 16) | (g << 8) | r;
+    colorCache.set(hex, argb);
+    return argb;
+}
+
+// rebuild off-screen buffer
+function rebuildOffCanvas(grid, yStart = 0, yEnd = GRID_HEIGHT) {
+    const w = GRID_WIDTH;
+    for (let y = yStart; y < yEnd; y++) {
+        const row = grid[y];
+        if (!row) continue;
+        const rowOffset = y * w;
+        for (let x = 0; x < w; x++) {
+            const col = row[x];
+            if (!col) continue;
+            offBuf32[rowOffset + x] = parseColor(col);
+        }
+    }
+    offCtx.putImageData(offImageData, 0, 0);
+}
 
 // pan/zoom state for main canvas
 let scale = 1.0;
@@ -83,7 +150,7 @@ let touchStartX = 0; // for tap vs drag
 let touchStartY = 0;
 
 
-// canvas sizing, tries to fit parent or falls back to window size
+// canvas sizing, tries to fit parent or fallback if main-content is missing (shouldn't happen glueless)
 function setCanvasSize() {
     // try to fit #main-content if it exists
     const mainContentDiv = document.getElementById('main-content');
@@ -94,11 +161,10 @@ function setCanvasSize() {
         console.log('neuroCanvas element:', canvas);
         console.log('neuroCanvas 2D context:', ctx);
     } else {
-        // fallback if main-content is missing (shouldn't happen)
+        
         const leftPanel = document.getElementById('left-panel');
         const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
         canvas.width = window.innerWidth - leftPanelWidth;
-
         const bottomBar = document.querySelector('.bottom-bar');
         const bottomBarHeight = bottomBar ? bottomBar.offsetHeight : 0;
         canvas.height = window.innerHeight - bottomBarHeight;
@@ -106,30 +172,27 @@ function setCanvasSize() {
         console.log('Calculated Canvas Width:', canvas.width, 'Calculated Canvas Height:', canvas.height);
     }
 
-    // minimap always gets fixed size, so it's not blurry
     if (liveViewCanvas) {
         liveViewCanvas.width = LIVE_VIEW_CANVAS_WIDTH;
         liveViewCanvas.height = LIVE_VIEW_CANVAS_HEIGHT;
     }
 
-    // make highlight canvas match the main canvas resolution
     if (highlightCanvas) {
         highlightCanvas.width = canvas.width;
         highlightCanvas.height = canvas.height;
     }
 
-    highlightDirty = true; // need to reposition/redraw highlight on resize
+    highlightDirty = true; 
 
     if (gridData && gridData.length > 0) {
         console.log('setCanvasSize: Marking dirty due to resize with existing data.');
-        dirty = true; // let the next tick handle redraw
+        dirty = true; 
     } else {
         console.log('setCanvasSize: Grid data not yet available for redraw.');
     }
 }
 
-// backend communication
-
+// gets from backend
 async function getGrid() {
     try {
         const response = await fetch(`${BACKEND_URL}/grid`);
@@ -185,8 +248,7 @@ function drawGrid(grid) {
     ctx.translate(offsetX, offsetY);
     ctx.scale(scale, scale);
 
-    // viewport culling MATHEMATICS
-    // screen → world → grid indices (add +- 1 cell buffer on each bound)
+    // viewport culling: screen -> world -> grid indices (add +- 1 cell buffer on each bound)
     const worldMinX = (0 - offsetX) / scale;
     const worldMinY = (0 - offsetY) / scale;
     const worldMaxX = (canvas.width - offsetX) / scale;
@@ -227,7 +289,7 @@ function drawGrid(grid) {
         selectedPixel.x >= startCol && selectedPixel.x <= endCol &&
         selectedPixel.y >= startRow && selectedPixel.y <= endRow
     ) {
-        highlightDirty = true; // let the highlight layer redraw
+        highlightDirty = true; 
     }
 
     ctx.restore();
@@ -267,7 +329,6 @@ function drawLiveViewGrid(grid) {
         return;
     }
 
-    // clear minimap
     liveViewCtx.clearRect(0, 0, liveViewCanvas.width, liveViewCanvas.height);
 
     for (let y = 0; y < GRID_HEIGHT; y++) {
@@ -288,7 +349,7 @@ function drawLiveViewGrid(grid) {
 // rAF loop, only draws if dirty aka it has a change to draw
 function tick() {
     if (dirty && gridData && gridData.length) {
-        drawGrid(gridData);
+        drawGridBlit();
         drawLiveViewGrid(gridData);
         dirty = false;
     }
@@ -301,7 +362,6 @@ function tick() {
     requestAnimationFrame(tick);
 }
 
-// pixel log, just appends a line to the chat log
 function addPixelLogEntry(x, y, color) {
     if (!pixelChatLog) {
         console.error("Pixel chat log element not found.");
@@ -315,8 +375,6 @@ function addPixelLogEntry(x, y, color) {
     pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
 }
 
-
-// mouse/touch event handlers
 
 function getGridCoordsFromScreen(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
@@ -335,7 +393,6 @@ function getGridCoordsFromScreen(clientX, clientY) {
     return null;
 }
 
-// click/tap handler, only runs if it was actually a click/tap
 function handleUserInteractionClick(event) {
     const currentX = event.clientX;
     const currentY = event.clientY;
@@ -363,12 +420,11 @@ function handleUserInteractionClick(event) {
     }
 }
 
-// mouse handlers
 function handleMouseDown(event) {
     isDragging = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
-    lastClickX = event.clientX; // for click/drag diff
+    lastClickX = event.clientX; 
     lastClickY = event.clientY;
     canvas.classList.add('grabbing');
     console.log('DEBUG: Mouse Down - Starting interaction. Stored start coords:', lastClickX, lastClickY);
@@ -395,7 +451,6 @@ function handleMouseUp(event) {
     canvas.classList.remove('grabbing');
     console.log('DEBUG: Mouse Up - Ending interaction.');
 
-    // if you didn't move much, it's a click
     const dx = event.clientX - lastClickX;
     const dy = event.clientY - lastClickY;
 
@@ -409,18 +464,18 @@ function handleMouseUp(event) {
 
 // touch handlers
 function handleTouchStart(event) {
-    event.preventDefault(); // stops scrolling
+    event.preventDefault();
 
-    if (event.touches.length === 1) { // single finger = drag or tap
+    if (event.touches.length === 1) { 
         isDragging = true;
         lastTouchX = event.touches[0].clientX;
         lastTouchY = event.touches[0].clientY;
         touchStartX = event.touches[0].clientX;
         touchStartY = event.touches[0].clientY;
         canvas.classList.add('grabbing');
-        initialPinchDistance = null; // not pinching
+        initialPinchDistance = null; 
         console.log('DEBUG: Touch Start - Single touch (potential drag/tap). Stored start coords:', touchStartX, touchStartY);
-    } else if (event.touches.length === 2) { // two fingers = pinch
+    } else if (event.touches.length === 2) { 
         isDragging = false; // no drag while pinching
         initialPinchDistance = getPinchDistance(event);
         console.log('DEBUG: Touch Start - Two touches (potential pinch-to-zoom). initialPinchDistance:', initialPinchDistance);
@@ -430,9 +485,9 @@ function handleTouchStart(event) {
 }
 
 function handleTouchMove(event) {
-    event.preventDefault(); // no browser scroll/zoom
+    event.preventDefault(); 
 
-    if (event.touches.length === 1 && isDragging) { // drag
+    if (event.touches.length === 1 && isDragging) { 
         const dx = event.touches[0].clientX - lastTouchX;
         const dy = event.touches[0].clientY - lastTouchY;
 
@@ -444,7 +499,7 @@ function handleTouchMove(event) {
 
         dirty = true; 
         highlightDirty = true;
-    } else if (event.touches.length === 2 && initialPinchDistance !== null) { // pinch-to-zoom
+    } else if (event.touches.length === 2 && initialPinchDistance !== null) {
         const currentPinchDistance = getPinchDistance(event);
         const scaleChange = currentPinchDistance / initialPinchDistance;
 
@@ -495,7 +550,6 @@ function handleTouchEnd(event) {
     }
 }
 
-// pinch distance helper
 function getPinchDistance(event) {
     const touch1 = event.touches[0];
     const touch2 = event.touches[1];
@@ -505,18 +559,17 @@ function getPinchDistance(event) {
     );
 }
 
-// mouse wheel = zoom
 function handleMouseWheel(event) {
     if (event.preventDefault) {
-        event.preventDefault(); // stops page scroll
+        event.preventDefault(); 
     }
 
     const zoomFactor = 0.1;
     const oldScale = scale;
 
-    if (event.deltaY < 0) { // zoom in
+    if (event.deltaY < 0) { 
         scale *= (1 + zoomFactor);
-    } else { // zoom out
+    } else { 
         scale /= (1 + zoomFactor);
     }
 
@@ -609,6 +662,9 @@ function setupWebSocket() {
         if (gridData[y] && gridData[y][x] !== undefined) {
             gridData[y][x] = color;
         }
+        // poke the off-screen canvas so the next blit is up to date
+        offCtx.fillStyle = color;
+        offCtx.fillRect(x, y, 1, 1);
         dirty = true; 
         addPixelLogEntry(x, y, color);
     });
@@ -629,12 +685,12 @@ function setupWebSocket() {
 }
 
 
-// startup sequence
-
+// startup init
 async function init() {
     setCanvasSize();
 
     gridData = await getGrid();
+    rebuildOffCanvas(gridData);
 
     const gridPixelWidth = GRID_WIDTH * PIXEL_SIZE;
     const gridPixelHeight = GRID_HEIGHT * PIXEL_SIZE;
@@ -651,14 +707,12 @@ async function init() {
 
     window.addEventListener('resize', setCanvasSize);
 
-    // mouse listeners
     canvas.addEventListener('mousedown', handleMouseDown);
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseout', handleMouseUp); 
     canvas.addEventListener('wheel', handleMouseWheel, { passive: false });
 
-    // touch listeners
     canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
     canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
     canvas.addEventListener('touchend', handleTouchEnd);
@@ -674,13 +728,29 @@ async function init() {
 
     console.log('Frontend initialized!');
 
-    // animation ticker
     requestAnimationFrame(tick);
 }
 
 document.addEventListener('DOMContentLoaded', init);
 
-// debug for highlight canvas
-console.log('--- Debug: Highlight Canvas Context ---');
-console.log('Highlight canvas element:', highlightCanvas);
-console.log('Highlight 2D context:', highlightCtx);
+function drawGridBlit() {
+    // clear the visible canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    ctx.save();
+    ctx.translate(offsetX, offsetY);
+    ctx.scale(scale, scale);
+
+    ctx.imageSmoothingEnabled = false;
+
+    ctx.drawImage(
+        offCanvas,
+        0, 0, offCanvas.width, offCanvas.height, 
+        0, 0, offCanvas.width * PIXEL_SIZE, offCanvas.height * PIXEL_SIZE 
+    );
+
+    ctx.restore();
+
+    // mark highlight layer as dirty so it re-renders
+    highlightDirty = true;
+}
