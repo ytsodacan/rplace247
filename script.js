@@ -1,7 +1,7 @@
 // --- Configuration ---
 
-const BACKEND_URL = 'http://rplace247back.onrender.com:3000';
-const WEBSOCKET_URL = 'http://rplace247back.onrender.com:3000';
+const BACKEND_URL = 'http://restaurants-ez.gl.at.ply.gg:51332';
+const WEBSOCKET_URL = 'http://restaurants-ez.gl.at.ply.gg:51332';
 
 
 const PIXEL_SIZE = 10; // Base size of each pixel in grid coordinates
