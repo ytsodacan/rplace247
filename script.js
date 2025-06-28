@@ -1,6 +1,6 @@
 // --- Configuration ---
-const BACKEND_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
-const WEBSOCKET_URL = 'https://joan-coming-protein-uniform.trycloudflare.com';
+const BACKEND_URL = 'https://bored-inline-benefit-treated.trycloudflare.com';
+const WEBSOCKET_URL = 'https://bored-inline-benefit-treated.trycloudflare.com';
 
 const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
