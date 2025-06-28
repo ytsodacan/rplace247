@@ -278,6 +278,10 @@
             cursor: grabbing !important;
         }
 
+        .neuro {
+            display: none;
+        }
+
         /* Mobile support media query */
         @media (max-width: 768px) {
 
@@ -343,6 +347,33 @@
             .zoom-controls {
                 display: none;
             }
+
+            #rplaceCanvas {
+            display: block;
+            background-color: #a3a3a3;
+            cursor: grab;
+            /* Indicate draggable */
+            position: absolute;
+            /* Changed to absolute to fill #main-content */
+            top: 0;
+            left: 0;
+            width: 100%;
+            /* Fill parent */
+            height: 100%;
+            /* Fill parent */
+            z-index: 1;
+            /* Crucial for keeping pixels sharp when scaled */
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+        }
+
+        .header{
+            display: none;
+        }
+        .neuro {
+            display: flex;
+        }
         }
 
         @media (max-width: 768px) {
@@ -355,7 +386,7 @@
 
 <body class="bg-gray-100 flex flex-col">
 
-    <header class="bg-gray-200 shadow-md py-4">
+    <header class="bg-gray-200 shadow-md py-4 header">
         <div class="container mx-auto px-4">
             <h1 class="text-3xl font-bold text-gray-800 text-center">Neuro.Place</h1>
         </div>
@@ -391,6 +422,8 @@
                 Place
             </button>
             </div>
+            <h1 class="text-3xl font-bold text-gray-800 text-center neuro">Neuro.Place</h1>
+            
             
 
 
