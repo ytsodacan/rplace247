@@ -32,6 +32,7 @@ body {
     border-right: 1px solid #555;
     overflow-y: auto; /* In case content grows (not likely for this, but good practice) */
     flex-shrink: 0; /* Prevent it from shrinking */
+    overflow-x: clip; /* removing the left to right scrollbar for this pannel */
 }
 
 #left-panel h3 {
@@ -61,6 +62,7 @@ body {
     flex-direction: column; /* Stack heading and log area */
     flex-grow: 1; /* Allow it to take up remaining vertical space in the left panel */
     min-height: 0; /* Important for flex items with overflow */
+    align-items: center; /* matching the container this is within */
 }
 
 .pixel-chat-container h3 {
