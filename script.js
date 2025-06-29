@@ -1,5 +1,29 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // Initialize theme toggle button as early as possible
+    const earlyThemeToggleBtn = document.getElementById('themeToggleBtn');
+    if (earlyThemeToggleBtn) {
+        console.log("Found theme toggle button early");
+        const savedTheme = localStorage.getItem("theme");
+        if (savedTheme === "dark") {
+            document.documentElement.classList.add("dark");
+            const icon = earlyThemeToggleBtn.querySelector(".material-icons-round");
+            if (icon) icon.textContent = "light_mode";
+        }
+
+        earlyThemeToggleBtn.addEventListener('click', function () {
+            console.log("Early theme toggle clicked");
+            document.documentElement.classList.toggle("dark");
+            const isDark = document.documentElement.classList.contains("dark");
+            localStorage.setItem("theme", isDark ? "dark" : "light");
+
+            const icon = this.querySelector(".material-icons-round");
+            if (icon) icon.textContent = isDark ? "light_mode" : "dark_mode";
+        });
+    } else {
+        console.log("Theme toggle button not found early");
+    }
+
     const BACKEND_URL = 'https://place-worker.afunyun.workers.dev';
     const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
     const OAUTH_CLIENT_ID = '1388712213002457118';
@@ -17,11 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const CLICK_THRESHOLD = 5;
 
 
-    const canvas = document.getElementById('rplaceCanvas');
+    const canvas = document.getElementById('neuroCanvas');
     const ctx = canvas.getContext('2d');
 
     const liveViewCanvas = document.getElementById('liveViewCanvas');
     const liveViewCtx = liveViewCanvas.getContext('2d');
+
+    const highlightCanvas = document.getElementById('neuroHighlightCanvas');
+    const highlightCtx = highlightCanvas.getContext('2d');
 
     const pixelChatLog = document.getElementById('pixelChatLog');
 
@@ -31,10 +58,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const selectedCoordsDisplay = document.getElementById('selectedCoords');
     const zoomInBtn = document.getElementById('zoomInBtn');
     const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
 
+    console.log("Theme toggle button found:", themeToggleBtn);
 
     let currentColor = colorPicker.value;
-    let gridData = [];
+    let grid = [];
     let selectedPixel = { x: null, y: null };
 
     let socket = null;
@@ -81,18 +110,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let cooldownTimerDiv;
 
     function setCanvasSize() {
-        const mainContentDiv = document.getElementById('main-content');
-        if (mainContentDiv) {
-            canvas.width = mainContentDiv.clientWidth;
-            canvas.height = mainContentDiv.clientHeight;
-        } else {
-            const leftPanel = document.getElementById('left-panel');
-            const leftPanelWidth = leftPanel ? leftPanel.offsetWidth : 0;
-            canvas.width = window.innerWidth - leftPanelWidth;
-
-            const footerElement = document.querySelector('footer');
-            const footerHeight = footerElement ? footerElement.offsetHeight : 0;
-            canvas.height = window.innerHeight - footerHeight;
+        const canvasContainer = document.querySelector('.canvas-container');
+        if (canvasContainer) {
+            canvas.width = canvasContainer.clientWidth;
+            canvas.height = canvasContainer.clientHeight;
+            highlightCanvas.width = canvasContainer.clientWidth;
+            highlightCanvas.height = canvasContainer.clientHeight;
         }
 
         if (liveViewCanvas) {
@@ -100,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
             liveViewCanvas.height = LIVE_VIEW_CANVAS_HEIGHT;
         }
 
-        if (gridData && gridData.length > 0) {
+        if (grid && grid.length > 0) {
             console.log('setCanvasSize: Redrawing grids due to resize and existing data.');
             drawGrid();
             drawLiveViewGrid();
@@ -117,6 +140,29 @@ document.addEventListener('DOMContentLoaded', () => {
         return [r, g, b, 255];
     }
 
+    // Convert RGB color to hex format
+    function rgbToHex(rgb) {
+        // If rgb is already a hex string, return it
+        if (typeof rgb === 'string' && rgb.startsWith('#')) {
+            return rgb;
+        }
+
+        // If rgb is an array [r,g,b] or [r,g,b,a]
+        if (Array.isArray(rgb)) {
+            const [r, g, b] = rgb;
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        }
+
+        // If rgb is a string like "rgb(r,g,b)" or "rgba(r,g,b,a)"
+        if (typeof rgb === 'string' && (rgb.startsWith('rgb(') || rgb.startsWith('rgba('))) {
+            const values = rgb.match(/\d+/g).map(Number);
+            const [r, g, b] = values;
+            return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+        }
+
+        // Default fallback
+        return '#000000';
+    }
 
     async function getGrid() {
         try {
@@ -170,8 +216,13 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error("Offscreen canvas context not available for drawPixel.");
             return;
         }
+
+        // Calculate the exact pixel position
+        const pixelX = x * PIXEL_SIZE;
+        const pixelY = y * PIXEL_SIZE;
+
         offscreenCtx.fillStyle = color;
-        offscreenCtx.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        offscreenCtx.fillRect(pixelX, pixelY, PIXEL_SIZE, PIXEL_SIZE);
     }
 
     function drawFullOffscreenGrid(grid) {
@@ -193,21 +244,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!offscreenCanvas) return;
 
         ctx.save();
-        ctx.translate(offsetX, offsetY);
+
+        // Ensure we're using integer pixel values for the translation to avoid blurriness
+        const intOffsetX = Math.round(offsetX);
+        const intOffsetY = Math.round(offsetY);
+
+        ctx.translate(intOffsetX, intOffsetY);
         ctx.scale(scale, scale);
 
         ctx.drawImage(offscreenCanvas, 0, 0);
 
         ctx.restore();
 
+        // Draw highlight on separate canvas
+        drawHighlight();
+    }
+
+    function drawHighlight() {
+        highlightCtx.clearRect(0, 0, highlightCanvas.width, highlightCanvas.height);
+
         if (selectedPixel.x !== null && selectedPixel.y !== null) {
-            ctx.save();
-            ctx.translate(offsetX, offsetY);
-            ctx.scale(scale, scale);
-            ctx.strokeStyle = 'var(--gd-highlight-color, orange)';
-            ctx.lineWidth = 3 / scale;
-            ctx.strokeRect(selectedPixel.x * PIXEL_SIZE, selectedPixel.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
-            ctx.restore();
+            highlightCtx.save();
+
+            // Use the same integer offsets as in drawGrid
+            const intOffsetX = Math.round(offsetX);
+            const intOffsetY = Math.round(offsetY);
+
+            highlightCtx.translate(intOffsetX, intOffsetY);
+            highlightCtx.scale(scale, scale);
+            highlightCtx.strokeStyle = 'var(--accent, orange)';
+            highlightCtx.lineWidth = 3 / scale;
+            highlightCtx.strokeRect(selectedPixel.x * PIXEL_SIZE, selectedPixel.y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+            highlightCtx.restore();
         }
     }
 
@@ -225,7 +293,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (let y = 0; y < GRID_HEIGHT; y++) {
             for (let x = 0; x < GRID_WIDTH; x++) {
-                const color = gridData[y] && gridData[y][x] !== undefined ? gridData[y][x] : '#000000';
+                const color = grid[y] && grid[y][x] !== undefined ? grid[y][x] : '#000000';
                 const [r, g, b, a] = hexToRgba(color);
 
                 const targetX = Math.floor(x / LIVE_VIEW_PIXEL_SIZE_FACTOR);
@@ -359,7 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const logEntry = document.createElement('p');
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
         let finalContentHTML = ''; // This will hold the full HTML with colors
 
         // --- YOUR LOGIC TO DETERMINE finalContentHTML ---
@@ -372,12 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         // --- END YOUR LOGIC ---
 
-        // Initial structure with icon and the container for typing
         // The actual text content will be built incrementally within the 'typed-container'
         logEntry.innerHTML = `
-        <div class="pixellog-entry">
-            <span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span>
-            <span class="typing-target"></span> </div>
+        <span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span>
+        <span class="typing-target"></span>
     `;
 
         pixelChatLog.appendChild(logEntry);
@@ -435,26 +502,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function getGridCoordsFromScreen(clientX, clientY) {
+        // Use the bounding rectangle of the canvas itself for the most accurate calculation
         const rect = canvas.getBoundingClientRect();
 
+        // Calculate the position within the canvas element
         const canvasX = clientX - rect.left;
         const canvasY = clientY - rect.top;
 
-        const worldX = (canvasX - offsetX) / scale;
-        const worldY = (canvasY - offsetY) / scale;
+        // Apply the inverse of the canvas transformation to get world coordinates
+        // Use the same integer offsets as in drawGrid for consistency
+        const intOffsetX = Math.round(offsetX);
+        const intOffsetY = Math.round(offsetY);
 
+        const worldX = (canvasX - intOffsetX) / scale;
+        const worldY = (canvasY - intOffsetY) / scale;
+
+        // Convert world coordinates to grid coordinates
         const gridX = Math.floor(worldX / PIXEL_SIZE);
         const gridY = Math.floor(worldY / PIXEL_SIZE);
 
-        console.log('--- getGridCoordsFromScreen Debug ---');
-        console.log(`Input Screen: (${clientX}, ${clientY})`);
-        console.log(`Canvas Bounding Rect: left=${rect.left.toFixed(2)}, top=${rect.top.toFixed(2)}, width=${rect.width.toFixed(2)}, height=${rect.height.toFixed(2)}`);
-        console.log(`Canvas Local (relative to canvas top-left): (${canvasX.toFixed(2)}, ${canvasY.toFixed(2)})`);
-        console.log(`Current Transform: offsetX=${offsetX.toFixed(2)}, offsetY=${offsetY.toFixed(2)}, scale=${scale.toFixed(2)}`);
-        console.log(`World (after inverse transform): X=${worldX.toFixed(2)}, Y=${worldY.toFixed(2)}`);
-        console.log(`Grid Coords (final result): (${gridX}, ${gridY})`);
-        console.log('------------------------------------');
-
+        // Check if the grid coordinates are within bounds
         if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT) {
             return { x: gridX, y: gridY };
         }
@@ -462,32 +529,60 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleUserInteractionClick(event) {
-        const currentX = event.clientX;
-        const currentY = event.clientY;
+        const gridCoords = getGridCoordsFromScreen(event.clientX, event.clientY);
 
-        const coords = getGridCoordsFromScreen(currentX, currentY);
+        if (gridCoords) {
+            console.log(`Click resolved to grid coordinates: (${gridCoords.x}, ${gridCoords.y})`);
 
-        if (coords) {
-            if (selectedPixel.x !== coords.x || selectedPixel.y !== coords.y) {
+            // Check if the selection has changed
+            if (selectedPixel.x !== gridCoords.x || selectedPixel.y !== gridCoords.y) {
+                // Selection changed
             }
-            selectedPixel = { x: coords.x, y: coords.y };
+
+            selectedPixel.x = gridCoords.x;
+            selectedPixel.y = gridCoords.y;
+
+            // Update color picker to show the current color at this position
+            const index = gridCoords.y * GRID_WIDTH + gridCoords.x;
+            const currentColor = grid[index];
+
+            if (currentColor) {
+                const hexColor = rgbToHex(currentColor);
+                document.getElementById('colorPicker').value = hexColor;
+                document.getElementById('colorPickerText').textContent = hexColor;
+            }
+
+            // Update the selected coordinates display
             updateSelectedCoordsDisplay();
-            drawGrid();
+
+            // Redraw to show the highlight
+            drawHighlight();
         } else {
+            // Click was outside the grid
             if (selectedPixel.x !== null) {
+                // Selection was cleared
             }
-            selectedPixel = { x: null, y: null };
+
+            selectedPixel.x = null;
+            selectedPixel.y = null;
+
+            // Update the selected coordinates display
             updateSelectedCoordsDisplay();
-            drawGrid();
+
+            // Redraw to clear the highlight
+            drawHighlight();
         }
     }
 
     function handleMouseDown(event) {
         isDragging = true;
+
+        // Store the exact client coordinates
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
         lastClickX = event.clientX;
         lastClickY = event.clientY;
+
         canvas.classList.add('grabbing');
     }
 
@@ -501,9 +596,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         offsetX += dx;
         offsetY += dy;
-
-        offsetX = Math.round(offsetX);
-        offsetY = Math.round(offsetY);
 
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
@@ -519,8 +611,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const dy = event.clientY - lastClickY;
 
         if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
-            handleUserInteractionClick({ clientX: lastClickX, clientY: lastClickY });
-        } else {
+            // Use the current mouse position for better accuracy
+            handleUserInteractionClick({ clientX: event.clientX, clientY: event.clientY });
         }
     }
 
@@ -713,7 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
             selectedPixel.y = 0;
         }
         updateSelectedCoordsDisplay();
-        drawGrid();
+        drawHighlight();
     }
 
 
@@ -721,15 +813,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.createElement('button');
         btn.id = 'reconnectButton';
         btn.textContent = 'Reconnect';
+        btn.className = 'btn btn-primary';
         btn.style.display = 'none';
-        btn.style.padding = '8px 15px';
-        btn.style.marginLeft = '8px';
-        btn.style.borderRadius = '5px';
-        btn.style.fontWeight = 'bold';
-        btn.style.cursor = 'pointer';
-        btn.style.backgroundColor = '#4caf50';
-        btn.style.color = '#fff';
-        btn.style.border = 'none';
+        btn.style.marginTop = '1rem';
+        btn.style.width = '100%';
 
         btn.addEventListener('click', () => {
             if (!socket) return;
@@ -769,8 +856,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (data.type === 'pixelUpdate') {
                         const { x, y, color } = data;
 
-                        if (gridData[y]?.[x] !== undefined) {
-                            gridData[y][x] = color;
+                        if (grid[y]?.[x] !== undefined) {
+                            grid[y][x] = color;
                         }
 
                         drawPixelToOffscreen(x, y, color);
@@ -868,6 +955,57 @@ document.addEventListener('DOMContentLoaded', () => {
         cooldownTimerDiv.style.display = 'block';
     }
 
+    function toggleDark() {
+        console.log("Toggle dark mode called");
+        document.documentElement.classList.toggle("dark");
+        const isDark = document.documentElement.classList.contains("dark");
+        console.log("Dark mode is now:", isDark);
+        localStorage.setItem("theme", isDark ? "dark" : "light");
+
+        const themeIcon = themeToggleBtn.querySelector(
+            ".material-icons-round",
+        );
+        if (themeIcon) {
+            themeIcon.textContent = isDark ? "light_mode" : "dark_mode";
+            console.log("Theme icon updated to:", themeIcon.textContent);
+        } else {
+            console.log("Theme icon element not found");
+        }
+    }
+
+    function initTheme() {
+        console.log("initTheme called");
+        const savedTheme = localStorage.getItem("theme");
+        console.log("Saved theme from localStorage:", savedTheme);
+
+        if (savedTheme === "dark") {
+            console.log("Applying dark theme");
+            document.documentElement.classList.add("dark");
+            const themeIcon = themeToggleBtn.querySelector(
+                ".material-icons-round",
+            );
+            if (themeIcon) {
+                themeIcon.textContent = "light_mode";
+                console.log("Theme icon set to light_mode");
+            } else {
+                console.log("Theme icon element not found in initTheme");
+            }
+        } else if (savedTheme === "light") {
+            console.log("Applying light theme");
+            document.documentElement.classList.remove("dark");
+            const themeIcon = themeToggleBtn.querySelector(
+                ".material-icons-round",
+            );
+            if (themeIcon) {
+                themeIcon.textContent = "dark_mode";
+                console.log("Theme icon set to dark_mode");
+            } else {
+                console.log("Theme icon element not found in initTheme");
+            }
+        } else {
+            console.log("No saved theme, using default");
+        }
+    }
 
     async function init() {
         if (customColorSwatch && colorPicker) {
@@ -913,9 +1051,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         liveViewCtx.imageSmoothingEnabled = false;
 
-        gridData = await getGrid();
+        grid = await getGrid();
 
-        drawFullOffscreenGrid(gridData);
+        drawFullOffscreenGrid(grid);
 
         const gridPixelWidth = GRID_WIDTH * PIXEL_SIZE;
         const gridPixelHeight = GRID_HEIGHT * PIXEL_SIZE;
@@ -954,20 +1092,30 @@ document.addEventListener('DOMContentLoaded', () => {
         placePixelBtn.addEventListener('click', handlePlacePixelClick);
 
         if (zoomInBtn) {
-            zoomInBtn.addEventListener('click', () => handleMouseWheel({
-                deltaY: -1,
-                clientX: canvas.getBoundingClientRect().left + canvas.width / 2,
-                clientY: canvas.getBoundingClientRect().top + canvas.height / 2,
-                preventDefault: () => { }
-            }));
+            zoomInBtn.addEventListener('click', () => {
+                const rect = canvas.getBoundingClientRect();
+                handleMouseWheel({
+                    deltaY: -1,
+                    clientX: rect.left + canvas.clientWidth / 2,
+                    clientY: rect.top + canvas.clientHeight / 2,
+                    preventDefault: () => { }
+                });
+            });
         }
         if (zoomOutBtn) {
-            zoomOutBtn.addEventListener('click', () => handleMouseWheel({
-                deltaY: 1,
-                clientX: canvas.getBoundingClientRect().left + canvas.width / 2,
-                clientY: canvas.getBoundingClientRect().top + canvas.height / 2,
-                preventDefault: () => { }
-            }));
+            zoomOutBtn.addEventListener('click', () => {
+                const rect = canvas.getBoundingClientRect();
+                handleMouseWheel({
+                    deltaY: 1,
+                    clientX: rect.left + canvas.clientWidth / 2,
+                    clientY: rect.top + canvas.clientHeight / 2,
+                    preventDefault: () => { }
+                });
+            });
+        }
+
+        if (themeToggleBtn) {
+            themeToggleBtn.addEventListener('click', toggleDark);
         }
 
         window.reconnectButton = createReconnectButton();
@@ -979,6 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         await handleOAuthCallback();
         updateUserInterface();
+        initTheme();
 
         console.log('Frontend initialized!');
     }
@@ -988,6 +1137,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn && !btn.dataset.listenerAdded) {
             btn.addEventListener('click', initiateDiscordOAuth);
             btn.dataset.listenerAdded = 'true';
+        }
+        if (themeToggleBtn && !themeToggleBtn.dataset.listenerAdded) {
+            themeToggleBtn.addEventListener('click', toggleDark);
+            themeToggleBtn.dataset.listenerAdded = 'true';
         }
     });
 
