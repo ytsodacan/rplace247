@@ -437,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const displayX = typeof x === 'number' ? x : 'System';
         const displayY = typeof y === 'number' ? y : (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting…' || y.startsWith('Connection Error')) ? '' : y;
 
-        logEntry.innerHTML = `(<span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span>`;
+        logEntry.innerHTML = `<div class="pixellog-entry">(<span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span></div>`;
         pixelChatLog.appendChild(logEntry);
 
         pixelChatLog.scrollTop = pixelChatLog.scrollHeight;

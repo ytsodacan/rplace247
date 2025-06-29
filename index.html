@@ -99,6 +99,26 @@
             /* Slight stripe for readability */
         }
 
+        .pixellog-entry {
+            border-color: #000000;
+            border-radius: 10px;
+            border-width: 2px;
+            background-color: #858585;
+            height: 5vh;
+            /* Add this for the transition effect */
+            transition: background-color 0.3s ease, transform 0.3s ease;
+            /* Animate background-color and transform */
+        }
+
+        .pixellog-entry:hover {
+            border-color: #000000;
+            border-radius: 10px;
+            border-width: 2px;
+            background-color: #585858;
+            height: 5vh;
+            transform: scale(1.05);
+        }
+
 
         /* Ensure main canvas container stretches */
         #main-content {
@@ -390,7 +410,7 @@
 
             <h2 class="text-xl font-semibold text-gray-800 mt-4">Pixel Log</h2>
             <div id="pixelChatLog" class="bg-gray-50 p-2 rounded-md text-sm">
-                
+
             </div>
         </aside>
 
@@ -428,15 +448,15 @@
             </div>
             <h1 class="text-3xl font-bold text-gray-800 text-center neuro">Neuro.Place</h1>
         </div>
-        
+
     </footer>
 
     <!-- Main application script -->
     <script type="module" src="script.js"></script>
     <script type="stylesheet" src="style.css"></script>
-    
-    
-    
+
+
+
 
 </body>
 
