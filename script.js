@@ -4,7 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const BACKEND_URL = 'https://place-worker.afunyun.workers.dev';
     const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
     const OAUTH_CLIENT_ID = '1388712213002457118';
-    const OAUTH_REDIRECT_URI = `${window.location.origin}/auth/callback`;
+
+    // Discord requires **exact** redirect URIs.  During local development we
+    // want to hit the one that is registered in the Discord developer portal
+    // (http://localhost:5500/calllback).  In all other cases we fall back to
+    // the production callback that lives at /auth/callback relative to the
+    // current origin.
+    const OAUTH_REDIRECT_URI = (window.location.hostname === 'localhost')
+        ? 'http://localhost:5500/calllback' // ⚠️  must match the value set in the Discord app settings exactly
+        : `${window.location.origin}/auth/callback`;
 
     const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
@@ -49,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionId = generateSessionId();
     let userToken = localStorage.getItem('discord_token');
     let userData = JSON.parse(localStorage.getItem('user_data') || 'null');
-    
+
     // Make OAuth functions globally accessible
     window.initiateDiscordOAuth = () => initiateDiscordOAuth();
     window.logout = () => logout();
@@ -85,6 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- New: ImageData for Live View (for even faster drawing) ---
     let liveViewImageData;
     let liveViewPixelData; // This will hold the Uint8ClampedArray for ImageData manipulation
+
+    // --- Cooldown Configuration ---
+    const COOLDOWN_DURATION_MS = 60 * 1000; // 1 minute cooldown
+    let lastPixelTime = parseInt(localStorage.getItem('lastPixelTime') || '0', 10);
+    let cooldownIntervalId = null;
+    let enforceCooldown = true; // authenticated users can disable this
+    let cooldownTimerDiv;
 
     // --- Canvas Setup and Resizing ---
     function setCanvasSize() {
@@ -150,13 +165,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (userToken) {
                 headers.Authorization = `Bearer ${userToken}`;
             }
-            
+
             const response = await fetch(`${BACKEND_URL}/pixel`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({ 
-                    x, 
-                    y, 
+                body: JSON.stringify({
+                    x,
+                    y,
                     color,
                     sessionId,
                     user: userData
@@ -168,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Failed to place pixel: ${errorData.message || response.statusText}`);
             }
             console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
-            
+
             // Send webhook notification via backend
             await sendWebhookNotification(x, y, color);
         } catch (error) {
@@ -277,7 +292,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- OAuth Authentication ---
     function initiateDiscordOAuth() {
-        const scopes = 'identify';
+        const scopes = 'identify email';
         const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
         window.location.href = oauthUrl;
     }
@@ -285,7 +300,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleOAuthCallback() {
         const urlParams = new URLSearchParams(window.location.search);
         const code = urlParams.get('code');
-        
+
         if (code) {
             try {
                 const response = await fetch(`${BACKEND_URL}/auth/discord`, {
@@ -293,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ code, redirect_uri: OAUTH_REDIRECT_URI })
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     userToken = data.access_token;
@@ -319,25 +334,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateUserInterface() {
-        const loginBtn = document.getElementById('login-btn');
-        const logoutBtn = document.getElementById('logout-btn');
-        const userInfo = document.getElementById('user-info');
-        
+        const loginBtn = document.getElementById('discordLoginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const userInfo = document.getElementById('userInfo');
+
         if (userData && userToken) {
             if (loginBtn) loginBtn.style.display = 'none';
             if (logoutBtn) logoutBtn.style.display = 'inline-block';
             if (userInfo) {
-                userInfo.style.display = 'block';
-                userInfo.innerHTML = `
-                    <img src="https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png" 
-                         alt="Avatar" width="32" height="32" style="border-radius: 50%;">
-                    <span>${userData.username}#${userData.discriminator}</span>
-                `;
+                userInfo.style.display = 'flex';
+
+                // Update avatar and username elements without recreating logout button
+                const avatarEl = document.getElementById('userAvatar');
+                const nameEl = document.getElementById('userName');
+                if (avatarEl) {
+                    avatarEl.src = `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`;
+                }
+                if (nameEl) {
+                    nameEl.textContent = `${userData.username}#${userData.discriminator}`;
+                }
+
+                // Add cooldown toggle if not already present
+                if (!document.getElementById('cooldownToggleContainer')) {
+                    const label = document.createElement('label');
+                    label.id = 'cooldownToggleContainer';
+                    label.style.marginLeft = '8px';
+                    label.style.cursor = 'pointer';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = 'cooldownToggle';
+                    checkbox.checked = enforceCooldown;
+                    checkbox.style.marginRight = '4px';
+
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode('Enable Cooldown'));
+                    userInfo.appendChild(label);
+
+                    checkbox.addEventListener('change', (e) => {
+                        enforceCooldown = e.target.checked;
+                        if (!enforceCooldown) {
+                            updateCooldownTimerDisplay();
+                        } else {
+                            if (isCooldownActive()) {
+                                updateCooldownTimerDisplay();
+                                if (!cooldownIntervalId) {
+                                    cooldownIntervalId = setInterval(updateCooldownTimerDisplay, 1000);
+                                }
+                            }
+                        }
+                    });
+                }
             }
         } else {
             if (loginBtn) loginBtn.style.display = 'inline-block';
             if (logoutBtn) logoutBtn.style.display = 'none';
             if (userInfo) userInfo.style.display = 'none';
+
+            const toggleContainer = document.getElementById('cooldownToggleContainer');
+            if (toggleContainer) toggleContainer.remove();
+
+            enforceCooldown = true; // enforce for unauthenticated users
+            updateCooldownTimerDisplay();
         }
     }
 
@@ -356,7 +414,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             await fetch(`${BACKEND_URL}/api/webhook/discord`, {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     ...(userToken && { 'Authorization': `Bearer ${userToken}` })
                 },
@@ -632,10 +690,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handlePlacePixelClick() {
-        if (selectedPixel.x !== null && selectedPixel.y !== null) {
-            placePixel(selectedPixel.x, selectedPixel.y, currentColor);
-        } else {
+        if (selectedPixel.x === null || selectedPixel.y === null) {
             alert('Please select a pixel on the canvas first!');
+            return;
+        }
+
+        if (isCooldownActive()) {
+            const remaining = Math.ceil((COOLDOWN_DURATION_MS - (Date.now() - lastPixelTime)) / 1000);
+            alert(`Please wait ${remaining}s before placing another pixel.`);
+            return;
+        }
+
+        placePixel(selectedPixel.x, selectedPixel.y, currentColor);
+
+        if (enforceCooldown) {
+            startCooldownTimer();
         }
     }
 
@@ -674,9 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'Spacebar':
             case 'Space':
                 event.preventDefault();
-                if (selectedPixel.x !== null && selectedPixel.y !== null) {
-                    placePixel(selectedPixel.x, selectedPixel.y, currentColor);
-                }
+                handlePlacePixelClick();
                 return;
             default:
                 return; // Exit for other keys
@@ -690,7 +757,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateSelectedCoordsDisplay();
         drawGrid();
     }
-    // ...existing code...
 
     // --- WebSocket Setup ---
 
@@ -732,7 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             socket = new WebSocket(WEBSOCKET_URL);
-            
+
             socket.onopen = () => {
                 console.log('Connected to backend WebSocket');
                 addPixelLogEntry('System', 'Connected', '#00ff00');
@@ -744,10 +810,10 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
-                    
+
                     if (data.type === 'pixelUpdate') {
                         const { x, y, color } = data;
-                        
+
                         // 1. Update global gridData
                         if (gridData[y]?.[x] !== undefined) {
                             gridData[y][x] = color;
@@ -784,7 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
             socket.onclose = (event) => {
                 console.log('WebSocket connection closed:', event.code, event.reason);
                 addPixelLogEntry('System', 'Disconnected', '#ff0000');
-                
+
                 if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                     reconnectAttempts++;
                     console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
@@ -799,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('WebSocket error:', error);
                 addPixelLogEntry('System', 'Connection Error', '#ff9900');
             };
-            
+
         } catch (error) {
             console.error('Failed to create WebSocket connection:', error);
             addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900');
@@ -811,12 +877,80 @@ document.addEventListener('DOMContentLoaded', () => {
         connectWebSocket();
     }
 
+    // --- Cooldown Utility Functions ---
+    function isCooldownActive() {
+        if (!enforceCooldown) return false;
+        return (Date.now() - lastPixelTime) < COOLDOWN_DURATION_MS;
+    }
+
+    function startCooldownTimer() {
+        if (!enforceCooldown) return;
+        lastPixelTime = Date.now();
+        localStorage.setItem('lastPixelTime', lastPixelTime.toString());
+        updateCooldownTimerDisplay();
+        if (cooldownIntervalId) clearInterval(cooldownIntervalId);
+        cooldownIntervalId = setInterval(updateCooldownTimerDisplay, 1000);
+    }
+
+    function updateCooldownTimerDisplay() {
+        if (!cooldownTimerDiv) return;
+
+        if (!enforceCooldown) {
+            cooldownTimerDiv.style.display = 'none';
+            if (cooldownIntervalId) {
+                clearInterval(cooldownIntervalId);
+                cooldownIntervalId = null;
+            }
+            return;
+        }
+
+        const remaining = COOLDOWN_DURATION_MS - (Date.now() - lastPixelTime);
+        if (remaining <= 0) {
+            cooldownTimerDiv.style.display = 'none';
+            if (cooldownIntervalId) {
+                clearInterval(cooldownIntervalId);
+                cooldownIntervalId = null;
+            }
+            return;
+        }
+
+        cooldownTimerDiv.textContent = `Cooldown: ${Math.ceil(remaining / 1000)}s`;
+        cooldownTimerDiv.style.display = 'block';
+    }
 
     // --- Initialization ---
 
     async function init() {
         if (customColorSwatch && colorPicker) {
             customColorSwatch.style.backgroundColor = colorPicker.value;
+        }
+
+        // Create floating cooldown timer
+        cooldownTimerDiv = document.createElement('div');
+        cooldownTimerDiv.id = 'cooldownTimer';
+        cooldownTimerDiv.style.position = 'fixed';
+        cooldownTimerDiv.style.top = '10px';
+        cooldownTimerDiv.style.left = '50%';
+        cooldownTimerDiv.style.transform = 'translateX(-50%)';
+        cooldownTimerDiv.style.padding = '6px 12px';
+        cooldownTimerDiv.style.backgroundColor = 'rgba(0,0,0,0.75)';
+        cooldownTimerDiv.style.color = '#fff';
+        cooldownTimerDiv.style.fontWeight = 'bold';
+        cooldownTimerDiv.style.borderRadius = '4px';
+        cooldownTimerDiv.style.zIndex = '10000';
+        cooldownTimerDiv.style.display = 'none';
+        document.body.appendChild(cooldownTimerDiv);
+
+        // Setup Discord OAuth button handlers
+        const loginBtn = document.getElementById('discordLoginBtn');
+        if (loginBtn) loginBtn.addEventListener('click', initiateDiscordOAuth);
+        const logoutBtnElement = document.getElementById('logoutBtn');
+        if (logoutBtnElement) logoutBtnElement.addEventListener('click', logout);
+
+        // Show cooldown timer on load if necessary
+        if (isCooldownActive()) {
+            updateCooldownTimerDisplay();
+            cooldownIntervalId = setInterval(updateCooldownTimerDisplay, 1000);
         }
 
         setCanvasSize();
@@ -900,10 +1034,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateSelectedCoordsDisplay();
         setupWebSocket();
-        
+
         // Add keyboard event listener for arrow keys and spacebar
         document.addEventListener('keydown', handleKeyDown);
-        
+
         // Handle OAuth callback and update UI
         await handleOAuthCallback();
         updateUserInterface();
