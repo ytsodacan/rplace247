@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Configuration ---
     const BACKEND_URL = 'https://place-worker.afunyun.workers.dev';
     const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
-    const DISCORD_WEBHOOK_URL = 'https://discord.com/api/webhooks/1388700167170953377/ovEsmIGQyGRU2Cu3mEAT4RtdkWYpOM-OKic_lzVFZmP0W1ofvIAJtpxkGYiu7zGFr83a';
     const OAUTH_CLIENT_ID = '1388712213002457118';
     const OAUTH_REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
@@ -170,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
             
-            // Send webhook notification
+            // Send webhook notification via backend
             await sendWebhookNotification(x, y, color);
         } catch (error) {
             console.error('Error sending pixel update:', error);
@@ -347,25 +346,15 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const username = userData ? `${userData.username}#${userData.discriminator}` : 'Anonymous';
             const payload = {
-                content: `🎨 **${username}** placed a pixel!`,
-                username: "Neuro.Place Bot",
-                avatar_url: "https://cdn.discordapp.com/app-icons/your-app-id/icon.png",
-                embeds: [{
-                    title: "New Pixel Placed",
-                    color: parseInt(color.slice(1), 16),
-                    fields: [
-                        { name: "Coordinates", value: `(${x}, ${y})`, inline: true },
-                        { name: "Color", value: color, inline: true },
-                        { name: "User", value: username, inline: true }
-                    ],
-                    timestamp: new Date().toISOString(),
-                    thumbnail: userData ? {
-                        url: `https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png`
-                    } : undefined
-                }]
+                x,
+                y,
+                color,
+                user: userData,
+                username,
+                timestamp: new Date().toISOString()
             };
 
-            await fetch(DISCORD_WEBHOOK_URL, {
+            await fetch(`${BACKEND_URL}/api/webhook/discord`, {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',
