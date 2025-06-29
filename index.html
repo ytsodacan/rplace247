@@ -401,15 +401,15 @@
     </div>
 
     <footer class="bg-gray-200 py-4">
-        <div class="container mx-auto px-4 flex justify-between items-center">
-            <div class="flex items-center space-x-4">
-                <label for="colorPicker" class="text-gray-700 font-medium">Color:</label>
+        <div class="container mx-auto px-4 flex justify-between items-center controls-container">
+            <div class="flex items-center space-x-4 control-group">
+                <label for="colorPicker" class="text-gray-700 font-medium control-label">Color:</label>
                 <input type="color" id="colorPicker" value="#000000"
                     class="w-10 h-10 rounded-md cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-colors">
 
                 <span class="text-gray-700 text-lg selected">Selected: <span id="selectedCoords">(None)</span></span>
                 <button id="placePixelBtn"
-                    class="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 place">
+                    class="material-icons-round bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 place">
                     Place
                 </button>
 
@@ -432,6 +432,7 @@
     <!-- Main application script -->
     <script type="module" src="script.js"></script>
     <script type="stylesheet" src="style.css"></script>
+    <script type="stylesheet" src="nicestyles.css"></script>
     
 
 </body>
