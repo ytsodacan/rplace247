@@ -949,27 +949,6 @@
                 }
             });
         }
-
-        // Theme toggle button
-        const themeToggleBtn = document.getElementById('themeToggleBtn');
-        if (themeToggleBtn) {
-            const icon = themeToggleBtn.querySelector('.material-icons-round');
-
-            const updateIcon = () => {
-                if (icon) {
-                    // Show light_mode icon in dark mode, and vice-versa
-                    icon.textContent = document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode';
-                }
-            };
-
-            updateIcon(); // Set initial icon on modal open
-
-            themeToggleBtn.addEventListener('click', () => {
-                document.documentElement.classList.toggle('dark');
-                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
-                updateIcon();
-            });
-        }
     </script>
 
 </body>
