@@ -1,0 +1,255 @@
+/* Existing body styles */
+body {
+    margin: 0;
+    overflow: hidden; /* Prevent body scroll, let canvas handle scrolling via pan/zoom */
+    background-color: #f0f0f0; /* Light gray background for better contrast with grid */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333; /* Dark text for contrast on light background */
+    display: flex; /* Use flexbox for body to manage layout easily */
+    flex-direction: column; /* Stack header/footer if any, and then app-container */
+    height: 100vh; /* Ensure body takes full viewport height */
+}
+
+/* New container for the main application area (left panel + main canvas) */
+#app-container {
+    display: flex; /* Flexbox for main content area */
+    flex-grow: 1; /* Allow it to take available height */
+    overflow: hidden; /* Prevent scrollbars from app-container itself */
+    position: relative; /* For absolutely positioned canvas inside it */
+}
+
+/* Left panel for the live view */
+#left-panel {
+    width: 260px; /* Fixed width for the live view panel (500/2 + padding) */
+    background-color: #2b2b2b;
+    color: #eee;
+    padding: 10px;
+    box-sizing: border-box; /* Include padding in width */
+    display: flex;
+    flex-direction: column; /* Stack Live View and Pixel Log vertically */
+    align-items: center; /* Center content horizontally */
+    z-index: 5; /* Ensure it's above other elements if necessary */
+    border-right: 1px solid #555;
+    overflow-y: auto; /* In case content grows (not likely for this, but good practice) */
+    flex-shrink: 0; /* Prevent it from shrinking */
+    overflow-x: clip; /* removing the left to right scrollbar for this pannel */
+}
+
+#left-panel h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #9aff9a;
+}
+
+/* Live view canvas itself */
+#liveViewCanvas {
+    width: 250px; /* 500 grid cells / 2 = 250px wide */
+    height: 250px; /* 500 grid cells / 2 = 250px high */
+    border: 1px solid #555;
+    background-color: #1a1a1a; /* Dark background for live view */
+    display: block; /* Remove extra space below canvas */
+    /* Crucial for keeping pixels sharp when scaled down */
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+    image-rendering: -moz-crisp-edges;
+}
+
+/* NEW: Styles for the Pixel Chat Log */
+.pixel-chat-container {
+    width: 100%; /* Fill the left panel */
+    margin-top: 15px; /* Space from Live View */
+    display: flex;
+    flex-direction: column; /* Stack heading and log area */
+    flex-grow: 1; /* Allow it to take up remaining vertical space in the left panel */
+    min-height: 0; /* Important for flex items with overflow */
+    align-items: center; /* matching the container this is within */
+}
+
+.pixel-chat-container h3 {
+    margin-top: 0;
+    margin-bottom: 5px;
+    color: #9aff9a;
+}
+
+#pixelChatLog {
+    background-color: #1a1a1a; /* Dark background */
+    border: 1px solid #555;
+    padding: 10px;
+    color: #eee;
+    font-family: monospace; /* Monospace font for readability of coords */
+    font-size: 0.9em;
+    overflow-y: auto; /* Make it scrollable */
+    flex-grow: 1; /* Make it take up available vertical space */
+    min-height: 50px; /* Minimum height for visibility, can be adjusted */
+    max-height: 300px; /* Example max height, adjust as needed */
+    border-radius: 5px;
+    line-height: 1.4; /* Spacing between lines */
+}
+
+#pixelChatLog p {
+    margin: 0; /* Remove default paragraph margins */
+    padding: 2px 0; /* Small vertical padding for each log entry */
+    word-wrap: break-word; /* Wrap long lines if they somehow occur */
+}
+
+#pixelChatLog p:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.05); /* Slight stripe for readability */
+}
+
+
+/* Main content area for the rplaceCanvas */
+#main-content {
+    flex-grow: 1; /* Main content area takes remaining space */
+    position: relative; /* Crucial for absolute positioning of rplaceCanvas inside */
+    overflow: hidden; /* Hide any overflow if canvas goes beyond bounds */
+}
+
+/* rplaceCanvas styles adjusted to fill its parent #main-content */
+#rplaceCanvas {
+    display: block;
+    background-color: #2b2b2b;
+    cursor: grab; /* Indicate draggable */
+    position: absolute; /* Changed to absolute to fill #main-content */
+    top: 0;
+    left: 0;
+    width: 100%; /* Fill parent */
+    height: 100%; /* Fill parent */
+    z-index: 1;
+}
+
+/* Existing bottom-bar, controls, etc. styles */
+.bottom-bar {
+    position: relative;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: #333;
+    color: #eee;
+    padding: 10px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-sizing: border-box;
+    z-index: 10;
+    border-top: 1px solid #555;
+}
+
+.controls {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.controls label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.controls input[type="color"] {
+    border: none;
+    padding: 0;
+    width: 35px;
+    height: 35px;
+    cursor: pointer;
+    background: none;
+    -webkit-appearance: none;
+    border-radius: 5px;
+    overflow: hidden;
+    position: relative;
+    top: 2px; /* Slight adjustment for alignment */
+}
+
+/* For better color picker appearance across browsers */
+.controls input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.controls input[type="color"]::-webkit-color-swatch {
+    border: none;
+    border-radius: 5px;
+}
+
+.controls button {
+    background-color: #007bff; /* Primary blue button */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+.controls button:hover {
+    background-color: #0056b3;
+}
+
+.zoom-controls {
+    display: flex;
+    gap: 5px;
+}
+
+.zoom-controls button {
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    font-size: 1.2em;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.selected-coords {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #9aff9a; /* Light green for coordinates */
+}
+
+/* Cursor change when dragging */
+.grabbing {
+    cursor: grabbing !important;
+}
+
+@media (max-width: 768px) {
+    /* Hide the entire left panel on screens 768px wide or narrower */
+    #left-panel {
+        display: none;
+    }
+
+    /* Adjust the main app container layout for mobile */
+    #app-container {
+        flex-direction: column; /* Stack main content vertically instead of side-by-side */
+    }
+
+    /* Make the main content area take up the full width and height when the left panel is gone */
+    #main-content {
+        width: 100%;
+        height: 100%;
+        flex-grow: 1; /* Ensure it expands to fill available space */
+    }
+
+    /* Ensure the rplaceCanvas fills its parent (#main-content) */
+    #rplaceCanvas {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Optional: Adjust bottom bar for better mobile usability (stack controls) */
+    .bottom-bar {
+        flex-direction: column; /* Stack items vertically */
+        gap: 10px; /* Add some space between stacked items */
+        padding: 10px; /* Adjust padding */
+    }
+
+    .controls,
+    .selected-coords,
+    .zoom-controls {
+        width: 100%; /* Make controls take full width */
+        justify-content: center; /* Center items within their full width */
+    }
+
+    .controls {
+        flex-wrap: wrap; /* Allow controls to wrap to next line if necessary */
+    }
+}
