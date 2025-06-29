@@ -360,8 +360,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const logEntry = document.createElement('p');
         const displayX = typeof x === 'number' ? x : 'System';
         const displayY = typeof y === 'number' ? y : (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting…' || y.startsWith('Connection Error')) ? '' : y;
-
-        logEntry.innerHTML = `<div class="pixellog-entry">(<span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span>) set to <span style="color: ${color}; font-weight: bold;">${color}</span></div>`;
+        
+        logEntry.innerHTML = `<div class="pixellog-entry"><span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span><span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span> updated</div>`;
         pixelChatLog.appendChild(logEntry);
 
         pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
