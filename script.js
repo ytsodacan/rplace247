@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
     const OAUTH_CLIENT_ID = '1388712213002457118';
 
-    // OAuth redirect now always targets backend callback endpoint
-    // This ensures Discord returns to the worker which will finish auth and then relay data back to the frontend.
-    const OAUTH_REDIRECT_URI = 'https://place-worker.afunyun.workers.dev/callback';
+    // OAuth redirect URI uses current origin so Discord can redirect back to the frontend
+    // The frontend /callback then posts to the worker at /auth/discord
+    const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 
     const PIXEL_SIZE = 10;
 
