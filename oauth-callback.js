@@ -1,9 +1,9 @@
 // Minimal standalone handler for Discord OAuth redirect
-// This script is loaded only on /calllback (three-L) and performs the token
+// This script is loaded only on /callback and performs the token
 // exchange, then bounces the user back to the root of the app.
 
 const BACKEND_URL = 'https://place-worker.afunyun.workers.dev'; // keep in sync with script.js
-const OAUTH_REDIRECT_URI_LOCAL = 'http://localhost:5500/calllback';
+const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 
 (async function () {
 	const params = new URLSearchParams(window.location.search);
@@ -18,7 +18,7 @@ const OAUTH_REDIRECT_URI_LOCAL = 'http://localhost:5500/calllback';
 		const resp = await fetch(`${BACKEND_URL}/auth/discord`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ code, redirect_uri: OAUTH_REDIRECT_URI_LOCAL })
+			body: JSON.stringify({ code, redirect_uri: OAUTH_REDIRECT_URI })
 		});
 
 		if (!resp.ok) {

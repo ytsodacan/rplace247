@@ -5,14 +5,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
     const OAUTH_CLIENT_ID = '1388712213002457118';
 
-    // Discord requires **exact** redirect URIs.  During local development we
-    // want to hit the one that is registered in the Discord developer portal
-    // (http://localhost:5500/calllback).  In all other cases we fall back to
-    // the production callback that lives at /auth/callback relative to the
-    // current origin.
-    const OAUTH_REDIRECT_URI = (window.location.hostname === 'localhost')
-        ? 'http://localhost:5500/calllback' // ⚠️  must match the value set in the Discord app settings exactly
-        : `${window.location.origin}/auth/callback`;
+    // Discord requires the redirect URI to exactly match one registered in the
+    // Developer Portal.  We use a single canonical path `/callback` for both
+    // local and production; only the domain changes.
+    const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 
     const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
@@ -183,9 +179,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Failed to place pixel: ${errorData.message || response.statusText}`);
             }
             console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
-
-            // Send webhook notification via backend
-            await sendWebhookNotification(x, y, color);
         } catch (error) {
             console.error('Error sending pixel update:', error);
             alert(`Failed to place pixel: ${error.message}`);
@@ -396,32 +389,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             enforceCooldown = true; // enforce for unauthenticated users
             updateCooldownTimerDisplay();
-        }
-    }
-
-    // --- Webhook Integration ---
-    async function sendWebhookNotification(x, y, color) {
-        try {
-            const username = userData ? `${userData.username}#${userData.discriminator}` : 'Anonymous';
-            const payload = {
-                x,
-                y,
-                color,
-                user: userData,
-                username,
-                timestamp: new Date().toISOString()
-            };
-
-            await fetch(`${BACKEND_URL}/api/webhook/discord`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...(userToken && { 'Authorization': `Bearer ${userToken}` })
-                },
-                body: JSON.stringify(payload)
-            });
-        } catch (error) {
-            console.warn('Failed to send Discord webhook notification:', error);
         }
     }
 
@@ -1044,6 +1011,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log('Frontend initialized!');
     }
+
+    // Attach Discord login click handler early so it works even if later init fails
+    document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('discordLoginBtn');
+        if (btn && !btn.dataset.listenerAdded) {
+            btn.addEventListener('click', initiateDiscordOAuth);
+            btn.dataset.listenerAdded = 'true';
+        }
+    });
 
     init();
 
