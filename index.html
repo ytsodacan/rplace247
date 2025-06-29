@@ -183,7 +183,10 @@
         }
 
         .left-panel {
-            width: 320px;
+            width: 400px;
+            min-width: 300px;
+            max-width: 400px;
+            flex-shrink: 0;
             background: var(--bg-secondary);
             border-right: 1px solid var(--border);
             display: flex;
@@ -585,12 +588,13 @@
 <body class="flex flex-col">
     <header class="header">
         <button id="themeToggleBtn" class="btn btn-secondary btn-icon"
-            style="position: absolute; right: 21px; top: 50%; transform: translateY(-50%);" title="Toggle theme">
+            style="position: absolute; right: 21px; top: 50%; transform: translateY(-50%); z-index: 10;"
+            title="Toggle theme">
             <span class="material-icons-round">light_mode</span>
         </button>
         <div class="container mx-auto px-6 relative">
-            <div class="flex items-center justify-center w-full py-2 relative">
-                <h1 class="text-center w-full">Neuro.Place</h1>
+            <div class="flex items-center justify-center py-2 relative" style="padding-right: 80px;">
+                <h1 class="text-center">Neuro.Place</h1>
             </div>
         </div>
     </header>
@@ -691,12 +695,7 @@
         </div>
     </footer>
 
-    <script id="config" type="application/json">
-            {
-                "backendUrl": "https://polyphonic-beef-cabin-jar.trycloudflare.com",
-                "websocketUrl": "https://polyphonic-beef-cabin-jar.trycloudflare.com"
-            }
-        </script>
+
     <script defer src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
     <script type="module" src="main.js"></script>
     <script type="module" src="core/tests.js"></script>
