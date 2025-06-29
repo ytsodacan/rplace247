@@ -364,7 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Determine the main text content based on 'y'
         if (typeof y === 'number' && typeof x === 'number') {
             // Case: x and y are coordinates
-            contentHTML = `<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span> updated`;
+            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: black;">${y}</span> updated`;
         } else if (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting...' || y.startsWith('Connection Error')) {
             // Case: y is a special status message
             // Here, x is likely 'System'
