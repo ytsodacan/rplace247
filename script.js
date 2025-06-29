@@ -471,7 +471,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // The actual text content will be built incrementally within the 'typed-container'
         logEntry.innerHTML = `
-        <span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span>
+        <i class="fa-solid fa-circle" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;"></i>
         <span class="typing-target"></span>
     `;
 
