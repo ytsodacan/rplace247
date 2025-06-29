@@ -211,6 +211,20 @@ body {
     cursor: grabbing !important;
 }
 
+.blinker {
+    font-weight: bold; /* Make the cursor more prominent */
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    from, to {
+        color: transparent;
+    }
+    50% {
+        color: inherit; /* Or a specific color like white */
+    }
+}
+
 @media (max-width: 768px) {
     /* Hide the entire left panel on screens 768px wide or narrower */
     #left-panel {

@@ -360,33 +360,76 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const logEntry = document.createElement('p');
+        let finalContentHTML = ''; // This will hold the full HTML with colors
 
-        let contentHTML = ''; // This will hold the main text content
-
-        // Determine the main text content based on 'y'
+        // --- YOUR LOGIC TO DETERMINE finalContentHTML ---
         if (typeof y === 'number' && typeof x === 'number') {
-            // Case: x and y are coordinates
-            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: black;">${y}</span> updated`;
+            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         } else if (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting...' || y.startsWith('Connection Error')) {
-            // Case: y is a special status message
-            // Here, x is likely 'System'
-            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: #00ff00">${y}</span>`;
+            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span>`;
         } else {
-            // Case: y is a regular string message, x is likely 'System' or a user name
-            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: black;">${y}</span> updated`;
+            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         }
+        // --- END YOUR LOGIC ---
 
-        // Construct the full log entry HTML
+        // Initial structure with icon and the container for typing
+        // The actual text content will be built incrementally within the 'typed-container'
         logEntry.innerHTML = `
         <div class="pixellog-entry">
             <span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span>
-            ${contentHTML}
-        </div>
+            <span class="typing-target"></span> </div>
     `;
-        // Note the use of backticks for multiline string for readability
 
         pixelChatLog.appendChild(logEntry);
-        pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
+        pixelChatLog.scrollTop = pixelChatLog.scrollHeight; // Scroll to show the new entry immediately
+
+        // Get the element where the typing will occur
+        const typingTargetElement = logEntry.querySelector('.typing-target');
+        if (!typingTargetElement) {
+            console.error("Typing target element not found.");
+            return;
+        }
+
+        // --- Typing Logic Adapted from CodePen ---
+        let i = 0;
+        let isTag = false; // Flag to indicate if we are inside an HTML tag
+        const typingSpeed = 60; // Adjust this speed as needed (CodePen uses 60ms)
+        const originalText = finalContentHTML; // The full HTML string to type
+
+        function type() {
+            // Get the current substring to display
+            let text = originalText.slice(0, ++i);
+
+            // If all text is typed, stop the animation
+            if (text === originalText) {
+                typingTargetElement.innerHTML = text; // Ensure final content is set without cursor
+                pixelChatLog.scrollTop = pixelChatLog.scrollHeight; // Final scroll
+                return;
+            }
+
+            // Check if the last character is '<' (start of tag) or '>' (end of tag)
+            const char = text.slice(-1);
+            if (char === "<") isTag = true;
+            if (char === ">") isTag = false;
+
+            // Update the element's HTML with the current text and the blinking cursor
+            // The cursor should always be at the end of the visible text
+            typingTargetElement.innerHTML = text + `<span class='blinker'>&#32;</span>`;
+
+            // If currently inside a tag, call type() immediately without delay
+            if (isTag) {
+                type(); // No setTimeout, just call itself to quickly append the rest of the tag
+            } else {
+                // Otherwise, set a timeout for the next character
+                setTimeout(type, typingSpeed);
+            }
+
+            // Optional: Scroll during typing if the content is long, but can be jumpy
+            // pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
+        }
+
+        // Start the typing animation
+        type();
     }
 
 
