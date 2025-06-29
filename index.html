@@ -827,7 +827,7 @@
                         <span class="material-icons-round">light_mode</span>
                     </button>
                 </div>
-                
+
             </div>
 
             <div class="mt-8 flex justify-end">
@@ -923,108 +923,53 @@
             }
         });
 
-        // --- Settings interactions (re-implemented) ---
-        const darkModeToggle = document.getElementById('darkModeToggle');
-        const notificationsToggle = document.getElementById('notificationsToggle');
-        const volumeRange = document.getElementById('volumeRange');
-        const usernameInput = document.getElementById('usernameInput');
-        const languageSelect = document.getElementById('languageSelect');
+        // --- Auth & Theme Buttons in Modal ---
 
-        darkModeToggle.addEventListener('change', (event) => {
-            console.log('Dark Mode Toggled:', event.target.checked);
-            document.documentElement.classList.toggle('dark', event.target.checked);
-        });
-
-        if (notificationsToggle) {
-            notificationsToggle.addEventListener('change', (event) => {
-                console.log('Notifications Toggled:', event.target.checked);
+        // Auth buttons
+        const discordLoginBtn = document.getElementById('discordLoginBtn');
+        if (discordLoginBtn) {
+            discordLoginBtn.addEventListener('click', () => {
+                if (window.initiateDiscordOAuth) {
+                    window.initiateDiscordOAuth();
+                } else {
+                    console.error('initiateDiscordOAuth function not found. Was script.js loaded correctly?');
+                    alert('Could not initiate login. Please try refreshing the page.');
+                }
             });
         }
 
-        if (volumeRange) {
-            volumeRange.addEventListener('input', (event) => {
-                console.log('Volume:', event.target.value);
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                if (window.logout) {
+                    window.logout();
+                } else {
+                    console.error('logout function not found. Was script.js loaded correctly?');
+                    alert('Could not initiate logout. Please try refreshing the page.');
+                }
             });
         }
 
-        if (usernameInput) {
-            usernameInput.addEventListener('input', (event) => {
-                console.log('Username:', event.target.value);
-            });
-        }
-
-        if (languageSelect) {
-            languageSelect.addEventListener('change', (event) => {
-                console.log('Language Selected:', event.target.value);
-            });
-        }
-
-        // Initial theme setup on load (if using localStorage or a default)
-        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            document.documentElement.classList.add('dark');
-            if (darkModeToggle) {
-                darkModeToggle.checked = true;
-            }
-        } else {
-            document.documentElement.classList.remove('dark');
-            if (darkModeToggle) {
-                darkModeToggle.checked = false;
-            }
-        }
-
-        // Theme toggle button in header
+        // Theme toggle button
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         if (themeToggleBtn) {
+            const icon = themeToggleBtn.querySelector('.material-icons-round');
+
+            const updateIcon = () => {
+                if (icon) {
+                    // Show light_mode icon in dark mode, and vice-versa
+                    icon.textContent = document.documentElement.classList.contains('dark') ? 'light_mode' : 'dark_mode';
+                }
+            };
+
+            updateIcon(); // Set initial icon on modal open
+
             themeToggleBtn.addEventListener('click', () => {
                 document.documentElement.classList.toggle('dark');
-                if (darkModeToggle) {
-                    darkModeToggle.checked = document.documentElement.classList.contains('dark');
-                }
-                const icon = themeToggleBtn.querySelector('.material-icons-round');
-                if (icon) {
-                    icon.textContent = document.documentElement.classList.contains('dark') ? 'dark_mode' : 'light_mode';
-                }
-            });
-            const icon = themeToggleBtn.querySelector('.material-icons-round');
-            if (icon) {
-                icon.textContent = document.documentElement.classList.contains('dark') ? 'dark_mode' : 'light_mode';
-            }
-        }
-
-        // --- Duplicating account elements for modal (from left panel) ---
-        // Get references for modal's auth elements
-        const discordLoginBtnModal = document.getElementById('discordLoginBtnModal');
-        const userInfoModal = document.getElementById('userInfoModal');
-        const userAvatarModal = document.getElementById('userAvatarModal');
-        const userNameModal = document.getElementById('userNameModal');
-        const logoutBtnModal = document.getElementById('logoutBtnModal');
-
-        // Assuming initial state logic for user info is handled elsewhere and would update both sets of elements
-        // For demonstration, let's just log clicks
-        if (discordLoginBtnModal) {
-            discordLoginBtnModal.addEventListener('click', () => {
-                console.log('Login with Discord from Modal clicked!');
-                // In a real app, this would trigger authentication flow
-                // For demo, simulate login:
-                // userInfoModal.classList.remove('hidden');
-                // userInfoModal.style.display = 'flex'; // Ensure flex display after removing hidden
-                // userNameModal.textContent = 'DemoUser';
-                // userAvatarModal.src = 'https://placehold.co/40x40/cccccc/000000?text=DU'; // Placeholder
-                // discordLoginBtnModal.classList.add('hidden');
+                localStorage.setItem('theme', document.documentElement.classList.contains('dark') ? 'dark' : 'light');
+                updateIcon();
             });
         }
-
-        if (logoutBtnModal) {
-            logoutBtnModal.addEventListener('click', () => {
-                console.log('Logout from Modal clicked!');
-                // For demo, simulate logout:
-                // userInfoModal.classList.add('hidden');
-                // userInfoModal.style.display = 'none'; // Explicitly hide
-                // discordLoginBtnModal.classList.remove('hidden');
-            });
-        }
-
-
     </script>
 
 </body>
