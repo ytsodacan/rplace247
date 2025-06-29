@@ -366,7 +366,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof y === 'number' && typeof x === 'number') {
             finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         } else if (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting...' || y.startsWith('Connection Error')) {
-            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span>`;
+            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         } else {
             finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         }
