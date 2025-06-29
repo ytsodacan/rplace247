@@ -1,8 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // --- Configuration ---
-    const BACKEND_URL = 'https://bored-inline-benefit-treated.trycloudflare.com';
-    const WEBSOCKET_URL = 'https://bored-inline-benefit-treated.trycloudflare.com';
+    const BACKEND_URL = 'https://place-worker.afunyun.workers.dev';
+    const WEBSOCKET_URL = 'wss://place-worker.afunyun.workers.dev/ws';
+    const OAUTH_CLIENT_ID = '1388712213002457118';
+    const OAUTH_REDIRECT_URI = `${window.location.origin}/auth/callback`;
 
     const PIXEL_SIZE = 10; // Base size of each pixel in main grid coordinates
 
@@ -41,6 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // WebSocket instance reference
     let socket = null;
+    let reconnectAttempts = 0;
+    const MAX_RECONNECT_ATTEMPTS = 5;
+    const RECONNECT_DELAY = 1000;
+    const sessionId = generateSessionId();
+    let userToken = localStorage.getItem('discord_token');
+    let userData = JSON.parse(localStorage.getItem('user_data') || 'null');
+    
+    // Make OAuth functions globally accessible
+    window.initiateDiscordOAuth = () => initiateDiscordOAuth();
+    window.logout = () => logout();
+    window.handleOAuthCallback = () => handleOAuthCallback();
 
     // --- Canvas Dimensions (Must match backend grid dimensions) ---
     const GRID_WIDTH = 500;
@@ -133,10 +146,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function placePixel(x, y, color) {
         try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (userToken) {
+                headers.Authorization = `Bearer ${userToken}`;
+            }
+            
             const response = await fetch(`${BACKEND_URL}/pixel`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ x, y, color })
+                headers,
+                body: JSON.stringify({ 
+                    x, 
+                    y, 
+                    color,
+                    sessionId,
+                    user: userData
+                })
             });
 
             if (!response.ok) {
@@ -144,6 +168,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(`Failed to place pixel: ${errorData.message || response.statusText}`);
             }
             console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
+            
+            // Send webhook notification via backend
+            await sendWebhookNotification(x, y, color);
         } catch (error) {
             console.error('Error sending pixel update:', error);
             alert(`Failed to place pixel: ${error.message}`);
@@ -241,6 +268,103 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         liveViewCtx.putImageData(liveViewImageData, 0, 0); // Re-draw the entire live view (fast for small canvas)
+    }
+
+    // --- Utility Functions ---
+    function generateSessionId() {
+        return `session_${Math.random().toString(36).substring(2, 11)}${Date.now().toString(36)}`;
+    }
+
+    // --- OAuth Authentication ---
+    function initiateDiscordOAuth() {
+        const scopes = 'identify';
+        const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
+        window.location.href = oauthUrl;
+    }
+
+    async function handleOAuthCallback() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        
+        if (code) {
+            try {
+                const response = await fetch(`${BACKEND_URL}/auth/discord`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, redirect_uri: OAUTH_REDIRECT_URI })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    userToken = data.access_token;
+                    userData = data.user;
+                    localStorage.setItem('discord_token', userToken);
+                    localStorage.setItem('user_data', JSON.stringify(userData));
+                    updateUserInterface();
+                    // Clean up URL
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch (error) {
+                console.error('OAuth callback error:', error);
+            }
+        }
+    }
+
+    function logout() {
+        userToken = null;
+        userData = null;
+        localStorage.removeItem('discord_token');
+        localStorage.removeItem('user_data');
+        updateUserInterface();
+    }
+
+    function updateUserInterface() {
+        const loginBtn = document.getElementById('login-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userInfo = document.getElementById('user-info');
+        
+        if (userData && userToken) {
+            if (loginBtn) loginBtn.style.display = 'none';
+            if (logoutBtn) logoutBtn.style.display = 'inline-block';
+            if (userInfo) {
+                userInfo.style.display = 'block';
+                userInfo.innerHTML = `
+                    <img src="https://cdn.discordapp.com/avatars/${userData.id}/${userData.avatar}.png" 
+                         alt="Avatar" width="32" height="32" style="border-radius: 50%;">
+                    <span>${userData.username}#${userData.discriminator}</span>
+                `;
+            }
+        } else {
+            if (loginBtn) loginBtn.style.display = 'inline-block';
+            if (logoutBtn) logoutBtn.style.display = 'none';
+            if (userInfo) userInfo.style.display = 'none';
+        }
+    }
+
+    // --- Webhook Integration ---
+    async function sendWebhookNotification(x, y, color) {
+        try {
+            const username = userData ? `${userData.username}#${userData.discriminator}` : 'Anonymous';
+            const payload = {
+                x,
+                y,
+                color,
+                user: userData,
+                username,
+                timestamp: new Date().toISOString()
+            };
+
+            await fetch(`${BACKEND_URL}/api/webhook/discord`, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(userToken && { 'Authorization': `Bearer ${userToken}` })
+                },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.warn('Failed to send Discord webhook notification:', error);
+        }
     }
 
     // --- Pixel Log Function ---
@@ -465,8 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const touch1 = event.touches[0];
         const touch2 = event.touches[1];
         return Math.sqrt(
-            Math.pow(touch2.clientX - touch1.clientX, 2) +
-            Math.pow(touch2.clientY - touch1.clientY, 2)
+            (touch2.clientX - touch1.clientX) ** 2 +
+            (touch2.clientY - touch1.clientY) ** 2
         );
     }
 
@@ -588,11 +712,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!socket) return;
             addPixelLogEntry('System', 'Reconnecting…', '#ffff00');
             btn.disabled = true;
-            socket.connect();
+            connectWebSocket();
         });
 
         // Append to the same div as placePixelBtn for consistent layout
-        if (placePixelBtn && placePixelBtn.parentElement) {
+        if (placePixelBtn?.parentElement) {
             placePixelBtn.parentElement.appendChild(btn);
         } else {
             // Fallback if the footer structure is unexpected
@@ -601,64 +725,90 @@ document.addEventListener('DOMContentLoaded', () => {
         return btn;
     }
 
-    function setupWebSocket() {
-        // `reconnection: false` means we handle reconnection manually via the button.
-        // If you want automatic reconnection, remove this option or set to true.
-        socket = io(WEBSOCKET_URL, { reconnection: false });
+    function connectWebSocket() {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            return;
+        }
 
-        socket.on('connect', () => {
-            console.log('Connected to backend');
-            addPixelLogEntry('System', 'Connected', '#00ff00');
-            reconnectButton.style.display = 'none';
-            reconnectButton.disabled = false;
-        });
+        try {
+            socket = new WebSocket(WEBSOCKET_URL);
+            
+            socket.onopen = () => {
+                console.log('Connected to backend WebSocket');
+                addPixelLogEntry('System', 'Connected', '#00ff00');
+                reconnectButton.style.display = 'none';
+                reconnectButton.disabled = false;
+                reconnectAttempts = 0;
+            };
 
-        socket.on('pixelUpdate', (data) => {
-            const { x, y, color } = data;
-            // console.log(`Received real-time update: Pixel at (${x}, (${y})) changed to ${color}`);
+            socket.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'pixelUpdate') {
+                        const { x, y, color } = data;
+                        
+                        // 1. Update global gridData
+                        if (gridData[y]?.[x] !== undefined) {
+                            gridData[y][x] = color;
+                        }
 
-            // 1. Update global gridData
-            if (gridData[y] && gridData[y][x] !== undefined) {
-                gridData[y][x] = color;
-            }
+                        // 2. Update offscreen canvas (for main view) for the specific pixel
+                        drawPixelToOffscreen(x, y, color);
 
-            // 2. Update offscreen canvas (for main view) for the specific pixel
-            drawPixelToOffscreen(x, y, color);
+                        // 3. Update live view pixel directly in ImageData
+                        if (liveViewPixelData) {
+                            const [r, g, b, a] = hexToRgba(color);
+                            const targetX = Math.floor(x / LIVE_VIEW_PIXEL_SIZE_FACTOR);
+                            const targetY = Math.floor(y / LIVE_VIEW_PIXEL_SIZE_FACTOR);
+                            const imageDataIndex = (targetY * LIVE_VIEW_CANVAS_WIDTH + targetX) * 4;
 
-            // 3. Update live view pixel directly in ImageData
-            if (liveViewPixelData) {
-                const [r, g, b, a] = hexToRgba(color);
-                const targetX = Math.floor(x / LIVE_VIEW_PIXEL_SIZE_FACTOR);
-                const targetY = Math.floor(y / LIVE_VIEW_PIXEL_SIZE_FACTOR);
-                const imageDataIndex = (targetY * LIVE_VIEW_CANVAS_WIDTH + targetX) * 4;
+                            if (imageDataIndex >= 0 && imageDataIndex + 3 < liveViewPixelData.length) {
+                                liveViewPixelData[imageDataIndex] = r;
+                                liveViewPixelData[imageDataIndex + 1] = g;
+                                liveViewPixelData[imageDataIndex + 2] = b;
+                                liveViewPixelData[imageDataIndex + 3] = a;
+                            }
+                            liveViewCtx.putImageData(liveViewImageData, 0, 0);
+                        }
 
-                if (imageDataIndex >= 0 && imageDataIndex + 3 < liveViewPixelData.length) {
-                    liveViewPixelData[imageDataIndex] = r;
-                    liveViewPixelData[imageDataIndex + 1] = g;
-                    liveViewPixelData[imageDataIndex + 2] = b;
-                    liveViewPixelData[imageDataIndex + 3] = a;
+                        // 4. Redraw main grid
+                        drawGrid();
+                        addPixelLogEntry(x, y, color);
+                    }
+                } catch (error) {
+                    console.error('Error parsing WebSocket message:', error);
                 }
-                liveViewCtx.putImageData(liveViewImageData, 0, 0); // Re-draw the entire live view (fast for small canvas)
-            }
+            };
 
-            // 4. Redraw main grid (will be fast due to drawImage from offscreen)
-            drawGrid();
-            addPixelLogEntry(x, y, color);
-        });
+            socket.onclose = (event) => {
+                console.log('WebSocket connection closed:', event.code, event.reason);
+                addPixelLogEntry('System', 'Disconnected', '#ff0000');
+                
+                if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                    reconnectAttempts++;
+                    console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
+                    setTimeout(() => connectWebSocket(), RECONNECT_DELAY * reconnectAttempts);
+                } else {
+                    reconnectButton.style.display = 'inline-block';
+                    alert('Connection lost. Please click reconnect to retry.');
+                }
+            };
 
-        socket.on('disconnect', () => {
-            console.log('Disconnected from backend. Pausing refresh.');
-            alert('Backend unavailable. Press the reconnect button to retry.');
-            addPixelLogEntry('System', 'Disconnected', '#ff0000');
-            reconnectButton.style.display = 'inline-block';
-        });
-
-        socket.on('connect_error', (error) => {
-            console.error('Backend connection error:', error);
-            alert('Backend unavailable. Press the reconnect button to retry.');
+            socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                addPixelLogEntry('System', 'Connection Error', '#ff9900');
+            };
+            
+        } catch (error) {
+            console.error('Failed to create WebSocket connection:', error);
             addPixelLogEntry('System', `Connection Error: ${error.message}`, '#ff9900');
             reconnectButton.style.display = 'inline-block';
-        });
+        }
+    }
+
+    function setupWebSocket() {
+        connectWebSocket();
     }
 
 
@@ -692,8 +842,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const gridPixelWidth = GRID_WIDTH * PIXEL_SIZE;
         const gridPixelHeight = GRID_HEIGHT * PIXEL_SIZE;
 
-        let fitScaleX = canvas.width / gridPixelWidth;
-        let fitScaleY = canvas.height / gridPixelHeight;
+        const fitScaleX = canvas.width / gridPixelWidth;
+        const fitScaleY = canvas.height / gridPixelHeight;
         scale = Math.min(fitScaleX, fitScaleY) * 0.9; // Fit it with a small margin
         scale = Math.max(scale, 0.1); // Ensure it's not too small
 
@@ -750,6 +900,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         updateSelectedCoordsDisplay();
         setupWebSocket();
+        
+        // Add keyboard event listener for arrow keys and spacebar
+        document.addEventListener('keydown', handleKeyDown);
+        
+        // Handle OAuth callback and update UI
+        await handleOAuthCallback();
+        updateUserInterface();
 
         console.log('Frontend initialized!');
     }
