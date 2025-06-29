@@ -331,8 +331,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function initiateDiscordOAuth() {
-        const scopes = "identify email";
-        const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}&response_type=code&scope=${encodeURIComponent(scopes)}`;
+        const scopes = "identify+email";
+        const oauthUrl = `https://discord.com/api/oauth2/authorize?client_id=${OAUTH_CLIENT_ID}&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}&response_type=code&scope=${scopes}`;
         window.location.href = oauthUrl;
     }
 
