@@ -358,12 +358,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const logEntry = document.createElement('p');
-        const displayX = typeof x === 'number' ? x : 'System';
-        const displayY = typeof y === 'number' ? y : (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting…' || y.startsWith('Connection Error')) ? '' : y;
-        
-        logEntry.innerHTML = `<div class="pixellog-entry"><span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span><span style="color: lightblue;">${displayX}</span>, <span style="color: lightblue;">${displayY}</span> updated</div>`;
-        pixelChatLog.appendChild(logEntry);
 
+        let contentHTML = ''; // This will hold the main text content
+
+        // Determine the main text content based on 'y'
+        if (typeof y === 'number' && typeof x === 'number') {
+            // Case: x and y are coordinates
+            contentHTML = `<span style="color: lightblue;">${x}</span>, <span style="color: lightblue;">${y}</span> updated`;
+        } else if (y === 'Connected' || y === 'Disconnected' || y === 'Reconnecting...' || y.startsWith('Connection Error')) {
+            // Case: y is a special status message
+            // Here, x is likely 'System'
+            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: #00ff00">${y}</span>`;
+        } else {
+            // Case: y is a regular string message, x is likely 'System' or a user name
+            contentHTML = `<span style="color: black;">${x}</span>, <span style="color: black;">${y}</span> updated`;
+        }
+
+        // Construct the full log entry HTML
+        logEntry.innerHTML = `
+        <div class="pixellog-entry">
+            <span class="material-icons" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;">circle</span>
+            ${contentHTML}
+        </div>
+    `;
+        // Note the use of backticks for multiline string for readability
+
+        pixelChatLog.appendChild(logEntry);
         pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
     }
 
@@ -668,7 +688,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         btn.addEventListener('click', () => {
             if (!socket) return;
-            addPixelLogEntry('System', 'Reconnecting…', '#ffff00');
+            addPixelLogEntry('System', 'Reconnecting...', '#ffff00');
             btn.disabled = true;
             connectWebSocket();
         });
