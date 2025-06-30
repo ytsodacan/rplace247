@@ -864,6 +864,7 @@ document.addEventListener("DOMContentLoaded", () => {
             addPixelLogEntry("System", "Reconnecting...", "#ffff00");
             btn.disabled = true;
             connectWebSocket();
+            getGrid();
         });
 
         if (bottomControls?.parentElement) {
@@ -939,6 +940,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     console.log(
                         `Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`,
                     );
+                    
                     setTimeout(
                         () => connectWebSocket(),
                         RECONNECT_DELAY * reconnectAttempts,
