@@ -47,6 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const zoomInBtn = document.getElementById("zoomInBtn");
     const zoomOutBtn = document.getElementById("zoomOutBtn");
     const themeToggleBtn = document.getElementById("themeToggleBtn");
+    const bottomControls = document.getElementById("reconnect");
 
     console.log("Theme toggle button found:", themeToggleBtn);
 
@@ -56,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let socket = null;
     let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
+    const MAX_RECONNECT_ATTEMPTS = 3;
     const RECONNECT_DELAY = 1000;
     const sessionId = generateSessionId();
     let userToken = localStorage.getItem("discord_token");
@@ -865,8 +866,8 @@ document.addEventListener("DOMContentLoaded", () => {
             connectWebSocket();
         });
 
-        if (placePixelBtn?.parentElement) {
-            placePixelBtn.parentElement.appendChild(btn);
+        if (bottomControls?.parentElement) {
+            bottomControls.parentElement.appendChild(btn);
         } else {
             document.body.appendChild(btn);
         }

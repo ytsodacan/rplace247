@@ -515,6 +515,14 @@
         }
 
         @media (max-width: 768px) {
+
+            .zoom-in,
+            .zoom-out,
+            .coords-display,
+            .zoom {
+                display: none;
+            }
+
             .left-panel {
                 display: none;
             }
@@ -755,8 +763,13 @@
     <header class="header">
 
         <div class="container mx-auto px-6 relative">
-            <div class="flex items-center justify-center py-2 relative" style="padding-right: 80px;">
-                <h1 class="text-center">Neuro.Place</h1>
+            <div class="flex items-center justify-center relative" style="">
+                <h1 class="text-center mr-auto">Neuro.Place</h1>
+                <button id="openSettingsBtn"
+                    class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500 ml-auto">
+                    <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar"
+                        src="user.png">
+                </button>
             </div>
         </div>
     </header>
@@ -828,6 +841,10 @@
                     </button>
                 </div>
 
+                <div class="setting-item" id="reconnect">
+                    <label for="reconnect" class="text-text-primary">Reconnect</label>
+                </div>
+
             </div>
 
             <div class="mt-8 flex justify-end">
@@ -843,42 +860,40 @@
     </div>
 
     <footer class="footer">
-        <div class="controls-container">
+        <div class="controls-container flex justify-center">
             <!-- Left Group: Color Picker, Selected Coords, Place Button, Zoom Buttons -->
-            <div class="control-group">
+            <div id="bottomControls" class="control-group">
                 <span class="control-label">Color</span>
                 <div class="color-picker-wrapper">
                     <input type="color" id="colorPicker" value="#6366f1">
                 </div>
+                <button id="placePixelBtn" class="btn btn-primary">
+                    <span class="material-icons-round" style="font-size: 1.125rem;">add</span>
+                    Place Pixel
+                </button>
             </div>
 
-            <div class="coords-display" id="selectedCoords">
+            <div class="coords-display absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" id="selectedCoords">
                 No pixel selected
             </div>
 
-            <div class="control-group">
-                <button id="zoomOutBtn" class="btn btn-secondary btn-icon" title="Zoom out">
+            <div class="control-group zoom ml-auto">
+                <button id="zoomOutBtn" class="btn btn-secondary btn-icon zoom-out" title="Zoom out">
                     <span class="material-icons-round">zoom_out</span>
                 </button>
-                <button id="zoomInBtn" class="btn btn-secondary btn-icon" title="Zoom in">
+                <button id="zoomInBtn" class="btn btn-secondary btn-icon zoom-in" title="Zoom in">
                     <span class="material-icons-round">zoom_in</span>
                 </button>
             </div>
 
-            <button id="placePixelBtn" class="btn btn-primary">
-                <span class="material-icons-round" style="font-size: 1.125rem;">add</span>
-                Place Pixel
-            </button>
+
 
             <!-- THIS IS THE CHANGE: This div consumes all available space, pushing the avatar to the right -->
-            <div style="flex: 1;"></div>
+            
 
             <!-- Right Group: Avatar Button (Settings) -->
             <!-- Removed ml-auto and float: right -->
-            <button id="openSettingsBtn"
-                class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500">
-                <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar" src="user.png">
-            </button>
+
         </div>
 
 
