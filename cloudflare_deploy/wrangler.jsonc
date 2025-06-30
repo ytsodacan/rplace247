@@ -1,0 +1,42 @@
+  {
+    // This is a JSONC file. Comments are allowed.
+    "name": "place-worker",
+    "main": "src/index.js",
+    "compatibility_date": "2024-06-20",
+    "kv_namespaces": [
+      {
+        "binding": "PALETTE_KV",
+        "id": "176d950b523a4563bee2e7da930cd029",
+        "preview_id": "70c0d4a4bad245fbb5840a5dc9679b58"
+      }
+    ],
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "GRID_STATE",
+          // NOTE: The key is "class_name", not "bindings". I've corrected it here.
+          "class_name": "GridDurableObject"
+        }
+      ]
+    },
+    "migrations": [
+      {
+        "tag": "v2",
+        "new_sqlite_classes": [
+          "GridDurableObject"
+        ]
+      }
+    ],
+    "vars": {
+      "DISCORD_CLIENT_ID": "1388712213002457118"
+    },
+    "assets": {
+      "directory": "./public",
+      "binding": "ASSETS"
+    },
+    "observability": {
+      "logs": {
+        "enabled": true
+      }
+    }
+  }
