@@ -58,6 +58,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     console.log("Theme toggle button found:", themeToggleBtn);
 
+    // Settings modal elements and state
+    const settingsModal = document.getElementById("settingsModal");
+    const closeSettingsBtn = document.getElementById("closeSettingsBtn");
+    let isSettingsOpen = false;
+
     let currentColor = colorPicker.value;
     let grid = [];
     const selectedPixel = { x: null, y: null };
@@ -73,6 +78,30 @@ document.addEventListener("DOMContentLoaded", () => {
     const sessionId = generateSessionId();
     let userToken = localStorage.getItem("discord_token");
     let userData = JSON.parse(localStorage.getItem("user_data") || "null");
+
+    function openSettingsModal() {
+        if (settingsModal) {
+            settingsModal.classList.add("active");
+            isSettingsOpen = true;
+        }
+    }
+
+    function closeSettingsModal() {
+        if (settingsModal) {
+            settingsModal.classList.remove("active");
+            isSettingsOpen = false;
+        }
+    }
+
+    function isAnyModalOpen() {
+        // Check if settings modal is open
+        if (isSettingsOpen) return true;
+
+        // Check if admin panel is open (via GridTender)
+        if (window.gridTender?.isAdminPanelOpen) return true;
+
+        return false;
+    }
 
     window.initiateDiscordOAuth = () => initiateDiscordOAuth();
     window.logout = () => logout();
@@ -868,10 +897,29 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             selectedCoordsDisplay.textContent = "None";
         }
-    }
-
-    function handleKeyDown(event) {
+    } function handleKeyDown(event) {
         if (event.defaultPrevented) return;
+
+        // Handle Escape key to close modals
+        if (event.key === "Escape") {
+            if (isSettingsOpen) {
+                closeSettingsModal();
+                return;
+            }
+            if (window.gridTender?.isAdminPanelOpen) {
+                window.gridTender.isAdminPanelCollapsed = true;
+                window.gridTender.isAdminPanelOpen = false;
+                window.gridTender.adminPanelElement?.classList.add('hidden');
+                window.gridTender.stopMonitoringAutoRefresh();
+                return;
+            }
+        }
+
+        // Suppress keybinds when any modal is open (settings window or admin panel)
+        if (isAnyModalOpen()) {
+            return;
+        }
+
         switch (event.key) {
             case "ArrowUp":
                 if (selectedPixel.y > 0) selectedPixel.y--;
@@ -1130,39 +1178,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const themeIcon = themeToggleBtn.querySelector(".material-icons-round");
         if (themeIcon) {
             themeIcon.textContent = isDark ? "light_mode" : "dark_mode";
-            console.log("Theme icon updated to:", themeIcon.textContent);
         } else {
-            console.log("Theme icon element not found");
-        }
-    }
-
-    function initTheme() {
-        console.log("initTheme called");
-        const savedTheme = localStorage.getItem("theme");
-        console.log("Saved theme from localStorage:", savedTheme);
-
-        if (savedTheme === "dark") {
-            console.log("Applying dark theme");
-            document.documentElement.classList.add("dark");
-            const themeIcon = themeToggleBtn.querySelector(".material-icons-round");
-            if (themeIcon) {
-                themeIcon.textContent = "light_mode";
-                console.log("Theme icon set to light_mode");
-            } else {
-                console.log("Theme icon element not found in initTheme");
-            }
-        } else if (savedTheme === "light") {
-            console.log("Applying light theme");
-            document.documentElement.classList.remove("dark");
-            const themeIcon = themeToggleBtn.querySelector(".material-icons-round");
-            if (themeIcon) {
-                themeIcon.textContent = "dark_mode";
-                console.log("Theme icon set to dark_mode");
-            } else {
-                console.log("Theme icon element not found in initTheme");
-            }
-        } else {
-            console.log("No saved theme, using default");
+            console.log("Theme icon not found inside theme toggle button");
         }
     }
 
@@ -1311,6 +1328,25 @@ document.addEventListener("DOMContentLoaded", () => {
         setupWebSocket();
 
         document.addEventListener("keydown", handleKeyDown);
+
+        // Settings modal event listeners
+        const openSettingsBtn = document.getElementById("openSettingsBtn");
+        if (openSettingsBtn) {
+            openSettingsBtn.addEventListener("click", openSettingsModal);
+        }
+
+        if (closeSettingsBtn) {
+            closeSettingsBtn.addEventListener("click", closeSettingsModal);
+        }
+
+        // Close settings modal when clicking outside of it
+        if (settingsModal) {
+            settingsModal.addEventListener("click", (e) => {
+                if (e.target === settingsModal) {
+                    closeSettingsModal();
+                }
+            });
+        }
 
         await handleOAuthCallback();
         updateUserInterface();
