@@ -47,7 +47,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const zoomInBtn = document.getElementById("zoomInBtn");
     const zoomOutBtn = document.getElementById("zoomOutBtn");
     const themeToggleBtn = document.getElementById("themeToggleBtn");
-    const bottomControls = document.getElementById("reconnect");
+    const bottomControls = document.getElementById("themeToggle");
 
     console.log("Theme toggle button found:", themeToggleBtn);
 
