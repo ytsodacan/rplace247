@@ -1001,6 +1001,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
                         drawGrid();
                         addPixelLogEntry(x, y, color);
+                    } else if (data.type === "broadcast") {
+                        // Handle broadcast messages from admins
+                        if (window.gridTender) {
+                            window.gridTender.handleBroadcastMessage(data);
+                        }
+                    } else if (data.type === "announcement") {
+                        // Handle announcement updates
+                        if (window.gridTender) {
+                            window.gridTender.updateAnnouncementDisplay(data.announcement || '');
+                        }
                     }
                 } catch (error) {
                     console.error("Error parsing WebSocket message:", error);
