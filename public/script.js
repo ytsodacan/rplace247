@@ -1199,6 +1199,25 @@ document.addEventListener("DOMContentLoaded", () => {
             themeToggleBtn.addEventListener("click", toggleDark);
         }
 
+        function clearChatLog() {
+            // Get all div children that are chat log items
+            const chatItems = pixelChatLog.querySelectorAll('.log-entry');
+            chatItems.forEach(item => {
+                item.remove(); // Remove each item
+            });
+
+            console.log('pixelChatLog cleared at:', new Date().toLocaleTimeString());
+        }
+
+        // Set up the interval to clear the chat log every 20 seconds
+        // The interval will call clearChatLog every 20000 milliseconds (20 seconds)
+        const clearChatInterval = setInterval(clearChatLog, 20000);
+
+        // Optional: Clear intervals if the page is unloaded (good practice for single-page apps)
+        window.addEventListener('beforeunload', () => {
+            clearInterval(clearChatInterval);
+        });
+
         window.reconnectButton = createReconnectButton();
 
         updateSelectedCoordsDisplay();
