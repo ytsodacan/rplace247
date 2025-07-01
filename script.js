@@ -882,6 +882,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         try {
             socket = new WebSocket(WEBSOCKET_URL);
+            
 
             socket.onopen = () => {
                 console.log("Connected to backend WebSocket");
@@ -942,9 +943,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     );
                     
                     setTimeout(
-                        () => connectWebSocket(),
+                        () => {
+                            connectWebSocket();
+                            getGrid();
+                        },
                         RECONNECT_DELAY * reconnectAttempts,
                     );
+                    
                 } else {
                     reconnectButton.style.display = "inline-block";
                     alert("Connection lost. Please click reconnect to retry.");
