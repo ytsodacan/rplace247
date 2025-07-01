@@ -1,234 +1,61 @@
 @ -22,7 +22,9 @@
-            /* Prevent scrolling on the entire page */
-            font-family: 'Inter', sans-serif;
-        }
+/* Prevent scrolling on the entire page */
+font-family: 'Inter', sans-serif;
+}
 
-        .neuro {
-            display: none;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
+.neuro {
+display: none;
+}
+body {
+display: flex;
+flex-direction: column;
 @ -193,10 +195,15 @@
-            z-index: 1;
-            /* Crucial for keeping pixels sharp when scaled */
-            image-rendering: pixelated;
-            image-rendering: crisp-edges;
-            /* For better pixel scaling in some browsers */
-            image-rendering: -moz-crisp-edges;
-            /* Firefox specific */
-        }
+z-index: 1;
+/* Crucial for keeping pixels sharp when scaled */
+image-rendering: pixelated;
+image-rendering: crisp-edges;
+/* For better pixel scaling in some browsers */
+image-rendering: -moz-crisp-edges;
+/* Firefox specific */
+}
 
-        /* Existing bottom-bar, controls, etc. styles */
-        .bottom-bar {
-            /* This class is applied to the <footer tag */
-            position: relative;
-            /* Changed from fixed to relative as it's within flex context */
-            bottom: 0;
-@ -206,8 +213,11 @@
-            color: #eee;
-            padding: 10px 20px;
-            display: flex;
-            /* Already flex */
-            justify-content: space-between;
-            /* Already space-between */
-            align-items: center;
-            /* Already align-items: center */
-            box-sizing: border-box;
-            z-index: 10;
-            border-top: 1px solid #555;
-@ -293,8 +303,21 @@
-            cursor: grabbing !important;
-        }
-
-        .neuro {
-            display: none;
-        .blinker {
-            font-weight: bold;
-            /* Make the cursor more prominent */
-            animation: blink 1s step-end infinite;
-        }
-
-        @keyframes blink {
-            from,
-            to {
-                color: transparent;
-            }
-            50% {
-                color: inherit;
-                /* Or a specific color like white */
-            }
-        }
-
-        /* Mobile support media query */
-@ -359,25 +382,7 @@
-                display: none;
-            }
-
-            #rplaceCanvas {
-                display: block;
-                background-color: #a3a3a3;
-                cursor: grab;
-                /* Indicate draggable */
-                position: absolute;
-                /* Changed to absolute to fill #main-content */
-                top: 0;
-                left: 0;
-                width: 100%;
-                /* Fill parent */
-                height: 100%;
-                /* Fill parent */
-                z-index: 1;
-                /* Crucial for keeping pixels sharp when scaled */
-                image-rendering: pixelated;
-                image-rendering: crisp-edges;
-                image-rendering: -moz-crisp-edges;
-            }
-            /* The #rplaceCanvas styles are already well-defined for full filling */
-
-            .header {
-                display: none;
-@ -385,13 +390,136 @@
-
-            .neuro {
-                display: flex;
-                /* Show Neuro.Place title on mobile */
-                /* Added styling to center it on mobile */
-                justify-content: center;
-                align-items: center;
-                width: 100%;
-            }
-        }
-
-        @media (max-width: 768px) {
-        /* Duplicated media query, combined above */
-        /* @media (max-width: 768px) {
-            .place {
-                display: block;
-            }
-        } */
-        /* Modal specific styles, moved here for clarity */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .settings-window {
-            background-color: #2c2c2c;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
-            max-width: 90%;
-            width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            position: relative;
-            transform: translateY(20px);
-            opacity: 0;
-            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
-        }
-
-        .modal-overlay.active .settings-window {
-            transform: translateY(0);
-            opacity: 1;
-        }
-
-        .close-button {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: none;
-            border: none;
-            color: #ccc;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 8px;
-            border-radius: 8px;
-            transition: background-color 0.2s ease, color 0.2s ease;
-        }
-
-        .close-button:hover {
-            background-color: #3a3a3a;
-            color: #fff;
-        }
-
-        .setting-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #444;
-        }
-
-        .setting-item:last-child {
-            border-bottom: none;
-        }
-
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 40px;
-            height: 20px;
-        }
-
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #555;
-            transition: .4s;
-            border-radius: 20px;
-        }
-
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 2px;
-            bottom: 2px;
-            background-color: white;
-            transition: .4s;
-            border-radius: 50%;
-        }
-
-        input:checked+.slider {
-            background-color: #4CAF50;
-        }
-
-        input:checked+.slider:before {
-            transform: translateX(20px);
-        }
-    </style>
-</head>
-@ -421,9 +549,49 @@
-            </div>
-        </main>
+/* Existing bottom-bar, controls, etc. styles */
+.bottom-bar {
+/* This class is applied to the <footer tag */ position: relative; /* Changed from fixed to relative as it's within flex
+    context */ bottom: 0; @ -206,8 +213,11 @@ color: #eee; padding: 10px 20px; display: flex; /* Already flex */
+    justify-content: space-between; /* Already space-between */ align-items: center; /* Already align-items: center */
+    box-sizing: border-box; z-index: 10; border-top: 1px solid #555; @ -293,8 +303,21 @@ cursor: grabbing !important; }
+    .neuro { display: none; .blinker { font-weight: bold; /* Make the cursor more prominent */ animation: blink 1s
+    step-end infinite; } @keyframes blink { from, to { color: transparent; } 50% { color: inherit; /* Or a specific
+    color like white */ } } /* Mobile support media query */ @ -359,25 +382,7 @@ display: none; } #rplaceCanvas {
+    display: block; background-color: #a3a3a3; cursor: grab; /* Indicate draggable */ position: absolute; /* Changed to
+    absolute to fill #main-content */ top: 0; left: 0; width: 100%; /* Fill parent */ height: 100%; /* Fill parent */
+    z-index: 1; /* Crucial for keeping pixels sharp when scaled */ image-rendering: pixelated; image-rendering:
+    crisp-edges; image-rendering: -moz-crisp-edges; } /* The #rplaceCanvas styles are already well-defined for full
+    filling */ .header { display: none; @ -385,13 +390,136 @@ .neuro { display: flex; /* Show Neuro.Place title on
+    mobile */ /* Added styling to center it on mobile */ justify-content: center; align-items: center; width: 100%; } }
+    @media (max-width: 768px) { /* Duplicated media query, combined above */ /* @media (max-width: 768px) { .place {
+    display: block; } } */ /* Modal specific styles, moved here for clarity */ .modal-overlay { position: fixed; top: 0;
+    left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.7); display: flex; justify-content: center;
+    align-items: center; z-index: 1000; opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s
+    ease; } .modal-overlay.active { opacity: 1; visibility: visible; } .settings-window { background-color: #2c2c2c;
+    border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); max-width: 90%; width: 500px;
+    max-height: 90vh; overflow-y: auto; position: relative; transform: translateY(20px); opacity: 0; transition:
+    transform 0.3s ease-out, opacity 0.3s ease-out; } .modal-overlay.active .settings-window { transform: translateY(0);
+    opacity: 1; } .close-button { position: absolute; top: 12px; right: 12px; background: none; border: none; color:
+    #ccc; font-size: 24px; cursor: pointer; padding: 8px; border-radius: 8px; transition: background-color 0.2s ease,
+    color 0.2s ease; } .close-button:hover { background-color: #3a3a3a; color: #fff; } .setting-item { display: flex;
+    justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #444; }
+    .setting-item:last-child { border-bottom: none; } .switch { position: relative; display: inline-block; width: 40px;
+    height: 20px; } .switch input { opacity: 0; width: 0; height: 0; } .slider { position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0; background-color: #555; transition: .4s; border-radius: 20px; } .slider:before
+    { position: absolute; content: "" ; height: 16px; width: 16px; left: 2px; bottom: 2px; background-color: white;
+    transition: .4s; border-radius: 50%; } input:checked+.slider { background-color: #4CAF50; }
+    input:checked+.slider:before { transform: translateX(20px); } </style>
+    </head>
+    @ -421,9 +549,49 @@
+    </div>
+    </main>
     </div>
     <div id="settingsModal" class="modal-overlay">
         <!-- Settings Window -->
@@ -248,7 +75,7 @@
                             Login with Discord
                         </button>
                         <div id="userInfo" class="hidden flex items-center space-x-2">
-                            
+
                             <span id="userName" class="text-gray-700 font-medium"></span>
                             <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 text-sm">Logout</button>
                         </div>
@@ -263,108 +90,113 @@
                 </div>
 
 
-    <footer class="bg-gray-200 py-4">
-        <div class="container mx-auto px-4 flex justify-between items-center controls-container">
-            </div>
-
-            <div class="mt-8 flex justify-end">
-            </div>
-        </div>
-    </div>
-    <footer class="bg-gray-200 py-4 bottom-bar">
-        <!-- Removed 'container mx-auto px-4' from this div to make content span full width -->
-        <div class="flex justify-between items-center w-full px-4"> 
-            <!-- Left Group: Color Picker, Selected Coords, Place Button -->
-            <div class="flex items-center space-x-4 control-group">
-                <input type="color" id="colorPicker" value="#000000"
-                    class="w-10 h-10 rounded-md cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-colors">
-@ -433,31 +601,75 @@
-                    class="material-icons-round bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-opacity-50 place">
-                    Place
-                </button>
-
-                <div id="authSection" class="flex items-center space-x-2">
-                    <button id="discordLoginBtn"
-                        class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
-                        Login with Discord
-                    </button>
-                    <div id="userInfo" class="hidden flex items-center space-x-2">
-                        <img id="userAvatar" class="w-8 h-8 rounded-full" alt="User Avatar">
-                        <span id="userName" class="text-gray-700 font-medium"></span>
-                        <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 text-sm">Logout</button>
+                <footer class="bg-gray-200 py-4">
+                    <div class="container mx-auto px-4 flex justify-between items-center controls-container">
                     </div>
-                </div>
-                
+
+                    <div class="mt-8 flex justify-end">
+                    </div>
             </div>
-            
-            <h1 class="text-3xl font-bold text-gray-800 text-center neuro">Neuro.Place</h1>
-            <button id="openSettingsBtn" class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500">
-                <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar" src="user.avif">
-            </button>
         </div>
+        <footer class="bg-gray-200 py-4 bottom-bar">
+            <!-- Removed 'container mx-auto px-4' from this div to make content span full width -->
+            <div class="flex justify-between items-center w-full px-4">
+                <!-- Left Group: Color Picker, Selected Coords, Place Button -->
+                <div class="flex items-center space-x-4 control-group">
+                    <input type="color" id="colorPicker" value="#000000"
+                        class="w-10 h-10 rounded-md cursor-pointer border-2 border-gray-300 hover:border-blue-500 transition-colors">
+                    @ -433,31 +601,75 @@
+                    class="material-icons-round bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6
+                    rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500
+                    focus:ring-opacity-50 place">
+                    Place
+                    </button>
 
-        <!-- The Neuro.Place title was here, but has been removed as per your request -->
-    </footer>
+                    <div id="authSection" class="flex items-center space-x-2">
+                        <button id="discordLoginBtn"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50">
+                            Login with Discord
+                        </button>
+                        <div id="userInfo" class="hidden flex items-center space-x-2">
+                            <img id="userAvatar" class="w-8 h-8 rounded-full" alt="User Avatar">
+                            <span id="userName" class="text-gray-700 font-medium"></span>
+                            <button id="logoutBtn" class="text-gray-500 hover:text-gray-700 text-sm">Logout</button>
+                        </div>
+                    </div>
 
-    <!-- Main application script -->
-    <script type="module" src="script.js"></script>
-    <script type="stylesheet" src="style.css"></script>
-    <script>
-        // Get references to the DOM elements
-        const openSettingsBtn = document.getElementById('openSettingsBtn');
-        const settingsModal = document.getElementById('settingsModal');
-        const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+                </div>
 
-        // Function to open the modal
-        function openModal() {
-            settingsModal.classList.add('active');
-            // Optional: Add a class to body to prevent scrolling when modal is open
-            document.body.style.overflow = 'hidden';
-        }
+                <h1 class="text-3xl font-bold text-gray-800 text-center neuro">Neuro.Place</h1>
+                <button id="openSettingsBtn"
+                    class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500">
+                    <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar"
+                        src="user.avif">
+                </button>
+            </div>
 
-        // Function to close the modal
-        function closeModal() {
-            settingsModal.classList.remove('active');
-            document.body.style.overflow = ''; // Restore scrolling
-        }
+            <!-- The Neuro.Place title was here, but has been removed as per your request -->
+        </footer>
 
-        // Event listeners
-        openSettingsBtn.addEventListener('click', openModal);
-        closeSettingsBtn.addEventListener('click', closeModal);
+        <!-- Main application script -->
+        <script type="module" src="script.js"></script>
+        <script type="stylesheet" src="style.css"></script>
+        <script>
+            // Get references to the DOM elements
+            const openSettingsBtn = document.getElementById('openSettingsBtn');
+            const settingsModal = document.getElementById('settingsModal');
+            const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 
-        // Close modal if user clicks outside the settings window (on the overlay itself)
-        settingsModal.addEventListener('click', (event) => {
-            // Check if the click occurred directly on the modal-overlay and not its children
-            if (event.target === settingsModal) {
-                closeModal();
+            // Function to open the modal
+            function openModal() {
+                settingsModal.classList.add('active');
+                // Optional: Add a class to body to prevent scrolling when modal is open
+                document.body.style.overflow = 'hidden';
             }
-        });
 
-        // Close modal if Escape key is pressed
-        document.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape' && settingsModal.classList.contains('active')) {
-                closeModal();
+            // Function to close the modal
+            function closeModal() {
+                settingsModal.classList.remove('active');
+                document.body.style.overflow = ''; // Restore scrolling
             }
-        });
 
-        // --- Optional: Example of how to interact with settings values ---
-        const darkModeToggle = document.getElementById('darkModeToggle');
-        const volumeRange = document.getElementById('volumeRange'); // This ID is no longer in the modal HTML, consider if it's still needed
+            // Event listeners
+            openSettingsBtn.addEventListener('click', openModal);
+            closeSettingsBtn.addEventListener('click', closeModal);
 
-        darkModeToggle.addEventListener('change', (event) => {
-            console.log('Dark Mode Toggled:', event.target.checked);
-            // In a real app, you'd apply a 'dark-mode' class to the body or root element here
-        });
+            // Close modal if user clicks outside the settings window (on the overlay itself)
+            settingsModal.addEventListener('click', (event) => {
+                // Check if the click occurred directly on the modal-overlay and not its children
+                if (event.target === settingsModal) {
+                    closeModal();
+                }
+            });
 
-        // Removed volumeRange listener as it's not in the provided settings modal HTML
-        /*
-        volumeRange.addEventListener('input', (event) => {
-            console.log('Volume:', event.target.value);
-            // In a real app, you'd adjust audio volume here
-        });
-        */
-    </script>
-</body>
+            // Close modal if Escape key is pressed
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && settingsModal.classList.contains('active')) {
+                    closeModal();
+                }
+            });
 
-</html>
-</html>
+            // --- Optional: Example of how to interact with settings values ---
+            const darkModeToggle = document.getElementById('darkModeToggle');
+            const volumeRange = document.getElementById('volumeRange'); // This ID is no longer in the modal HTML, consider if it's still needed
+
+            darkModeToggle.addEventListener('change', (event) => {
+                console.log('Dark Mode Toggled:', event.target.checked);
+                // In a real app, you'd apply a 'dark-mode' class to the body or root element here
+            });
+
+            // Removed volumeRange listener as it's not in the provided settings modal HTML
+            /*
+            volumeRange.addEventListener('input', (event) => {
+                console.log('Volume:', event.target.value);
+                // In a real app, you'd adjust audio volume here
+            });
+            */
+        </script>
+        </body>
+
+        </html>
+
+        </html>

@@ -10,8 +10,6 @@ worker-configuration.d.ts
 wrangler/
 .dev*
 *.jsonc
-src/
-public/
 .wrangler/
 cloudflare_deploy/
 bun.lockb
