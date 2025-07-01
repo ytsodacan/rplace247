@@ -1,15 +1,11 @@
-// Minimal standalone handler for Discord OAuth redirect
-// This script is loaded only on /callback and performs the token
-// exchange, then bounces the user back to the root of the app.
 
-const BACKEND_URL = `${window.location.origin}`; // keep in sync with script.js
+const BACKEND_URL = `${window.location.origin}`;
 const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 
 (async () => {
 	const params = new URLSearchParams(window.location.search);
 	const code = params.get("code");
 	if (!code) {
-		// Nothing to do; just send them home.
 		window.location.replace("/");
 		return;
 	}
@@ -35,6 +31,5 @@ const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 		alert("Discord authentication failed – please try again.");
 	}
 
-	// Always return to the main application
 	window.location.replace("/");
 })();

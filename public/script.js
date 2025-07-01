@@ -14,8 +14,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const BACKEND_URL = `${window.location.origin}`;
-    const WEBSOCKET_URL = `wss://${window.location.host}/ws`;
+    const IS_DEV_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const WEBSOCKET_URL = IS_DEV_MODE ?
+        `ws://${window.location.host}/ws` :
+        `wss://${window.location.host}/ws`;
     const OAUTH_CLIENT_ID = "1388712213002457118";
+
+    // Log dev mode detection
+    console.log(`GridTender: Dev mode detected: ${IS_DEV_MODE}`);
+    console.log(`GridTender: WebSocket URL: ${WEBSOCKET_URL}`);
 
     // OAuth redirect URI uses current origin so Discord can redirect back to the frontend
     // The frontend /callback then posts to the worker at /auth/discord
@@ -47,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const zoomInBtn = document.getElementById("zoomInBtn");
     const zoomOutBtn = document.getElementById("zoomOutBtn");
     const themeToggleBtn = document.getElementById("themeToggleBtn");
-    const bottomControls = document.getElementById("reconnect");
+    const bottomControls = document.getElementById("themeToggle");
 
     console.log("Theme toggle button found:", themeToggleBtn);
 
@@ -57,6 +64,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let socket = null;
     let reconnectAttempts = 0;
+    let fallbackMode = false;
+    let fallbackPollingInterval = null;
+    let lastUpdateTime = 0;
+    const FALLBACK_POLL_INTERVAL = 2000; // Poll every 2 seconds in fallback mode
     const MAX_RECONNECT_ATTEMPTS = 3;
     const RECONNECT_DELAY = 1000;
     const sessionId = generateSessionId();
@@ -213,6 +224,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function placePixel(x, y, color) {
         try {
+            // Check if GridTender is available and use its enhanced pixel placement
+            if (window.gridTender) {
+                const result = await window.gridTender.placePixel(x, y, color);
+                if (result.success) {
+                    console.log(`Pixel placement request sent for (${x}, ${y}) with color ${color}`);
+                } else {
+                    throw new Error(result.message);
+                }
+                return;
+            }
+
+            // Fallback to original implementation if GridTender is not available
             const headers = { "Content-Type": "application/json" };
             if (userToken) {
                 headers.Authorization = `Bearer ${userToken}`;
@@ -880,6 +903,15 @@ document.addEventListener("DOMContentLoaded", () => {
         drawHighlight();
     }
 
+    function disableFallbackMode() {
+        if (fallbackPollingInterval) {
+            clearInterval(fallbackPollingInterval);
+            fallbackPollingInterval = null;
+        }
+        fallbackMode = false;
+        console.log("Disabled fallback polling mode");
+    }
+
     function createReconnectButton() {
         const btn = document.createElement("button");
         btn.id = "reconnectButton";
@@ -893,6 +925,13 @@ document.addEventListener("DOMContentLoaded", () => {
             if (!socket) return;
             addPixelLogEntry("System", "Reconnecting...", "#ffff00");
             btn.disabled = true;
+
+            // Disable fallback mode when manually reconnecting
+            if (fallbackMode) {
+                disableFallbackMode();
+            }
+
+            reconnectAttempts = 0; // Reset attempts for manual reconnection
             connectWebSocket();
             getGrid();
         });
@@ -919,6 +958,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 reconnectButton.style.display = "none";
                 reconnectButton.disabled = false;
                 reconnectAttempts = 0;
+                fallbackMode = false;
+
+                // Clear any existing fallback polling
+                if (fallbackPollingInterval) {
+                    clearInterval(fallbackPollingInterval);
+                    fallbackPollingInterval = null;
+                }
             };
 
             socket.onmessage = (event) => {
@@ -976,14 +1022,30 @@ document.addEventListener("DOMContentLoaded", () => {
                         RECONNECT_DELAY * reconnectAttempts,
                     );
                 } else {
-                    reconnectButton.style.display = "inline-block";
-                    alert("Connection lost. Please click reconnect to retry.");
+                    // If in dev mode and all reconnection attempts failed, enable fallback
+                    if (IS_DEV_MODE) {
+                        console.log("WebSocket reconnection failed in dev mode, enabling fallback");
+                        enableFallbackMode();
+                    } else {
+                        // In production, also enable fallback as a safety net
+                        console.log("WebSocket reconnection failed, enabling fallback mode");
+                        enableFallbackMode();
+                    }
                 }
             };
 
             socket.onerror = (error) => {
                 console.error("WebSocket error:", error);
                 addPixelLogEntry("System", "Connection Error", "#ff9900");
+
+                // In dev mode or after max attempts, try fallback on WebSocket error
+                if (IS_DEV_MODE && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    console.log("WebSocket failed in dev mode, enabling fallback");
+                    enableFallbackMode();
+                } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+                    console.log("WebSocket failed after max attempts, enabling fallback");
+                    enableFallbackMode();
+                }
             };
         } catch (error) {
             console.error("Failed to create WebSocket connection:", error);
@@ -992,7 +1054,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 `Connection Error: ${error.message}`,
                 "#ff9900",
             );
-            reconnectButton.style.display = "inline-block";
+
+            // Enable fallback immediately if WebSocket creation fails
+            if (IS_DEV_MODE) {
+                console.log("WebSocket creation failed in dev mode, enabling fallback");
+                enableFallbackMode();
+            } else {
+                console.log("WebSocket creation failed, enabling fallback");
+                enableFallbackMode();
+            }
         }
     }
 
@@ -1199,9 +1269,35 @@ document.addEventListener("DOMContentLoaded", () => {
             themeToggleBtn.addEventListener("click", toggleDark);
         }
 
+        function clearChatLog() {
+            // Get all div children that are chat log items
+            const chatItems = pixelChatLog.querySelectorAll('.log-entry');
+            chatItems.forEach(item => {
+                item.remove(); // Remove each item
+            });
+
+            console.log('pixelChatLog cleared at:', new Date().toLocaleTimeString());
+        }
+        // Set the maximum number of chat log entries
+        const MAX_CHAT_LOG_ENTRIES = 30;
+        // ONLY if log is full:
+        if (pixelChatLog.children.length > MAX_CHAT_LOG_ENTRIES) {
+            // The interval will call clearChatLog every 200000 milliseconds (3mins)
+            const clearChatInterval = setInterval(clearChatLog, 200000);
+
+            // Clear intervals if the page is unloaded
+            window.addEventListener('beforeunload', () => {
+                clearInterval(clearChatInterval);
+            });
+        }
+
         window.reconnectButton = createReconnectButton();
 
         updateSelectedCoordsDisplay();
+
+        // Initialize lastUpdateTime for polling fallback
+        lastUpdateTime = Date.now();
+
         setupWebSocket();
 
         document.addEventListener("keydown", handleKeyDown);
@@ -1212,6 +1308,119 @@ document.addEventListener("DOMContentLoaded", () => {
 
         console.log("Frontend initialized!");
     }
+
+    function enableFallbackMode() {
+        fallbackMode = true;
+        addPixelLogEntry("System", "Fallback Mode (Polling)", "#ffaa00");
+        addPixelLogEntry("System", "Websocket is down.", "#ff0000");
+        console.log("Enabled fallback polling mode.");
+
+        // Start polling for updates
+        if (!fallbackPollingInterval) {
+            fallbackPollingInterval = setInterval(pollForUpdates, FALLBACK_POLL_INTERVAL);
+        }
+
+        // Hide reconnect button since we're in fallback mode
+        reconnectButton.style.display = "none";
+    }
+
+    // simulates failed websocket for testing
+    window.testFallbackMode = () => {
+        console.log("Testing fallback mode...");
+        if (socket) {
+            socket.close();
+        }
+        reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // Force max attempts reached
+        enableFallbackMode();
+    };
+
+    // Test function to verify the /api/updates endpoint works
+    window.testUpdatesEndpoint = async () => {
+        try {
+            console.log("Testing /api/updates endpoint...");
+            const response = await fetch(`${BACKEND_URL}/api/updates?since=${Date.now() - 5000}`);
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Updates endpoint response:", data);
+            } else {
+                console.error("Updates endpoint failed:", response.status);
+            }
+        } catch (error) {
+            console.error("Error testing updates endpoint:", error);
+        }
+    };
+
+    async function pollForUpdates() {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/updates?since=${lastUpdateTime}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data.updates && data.updates.length > 0) {
+                    console.log(`Received ${data.updates.length} updates via polling`);
+
+                    data.updates.forEach(update => {
+                        if (update.type === "pixelUpdate") {
+                            const { x, y, color, timestamp } = update;
+
+                            if (grid[y]?.[x] !== undefined) {
+                                grid[y][x] = color;
+                            }
+
+                            drawPixelToOffscreen(x, y, color);
+
+                            if (liveViewPixelData) {
+                                const [r, g, b, a] = hexToRgba(color);
+                                const targetX = Math.floor(x / LIVE_VIEW_PIXEL_SIZE_FACTOR);
+                                const targetY = Math.floor(y / LIVE_VIEW_PIXEL_SIZE_FACTOR);
+                                const imageDataIndex =
+                                    (targetY * LIVE_VIEW_CANVAS_WIDTH + targetX) * 4;
+
+                                if (
+                                    imageDataIndex >= 0 &&
+                                    imageDataIndex + 3 < liveViewPixelData.length
+                                ) {
+                                    liveViewPixelData[imageDataIndex] = r;
+                                    liveViewPixelData[imageDataIndex + 1] = g;
+                                    liveViewPixelData[imageDataIndex + 2] = b;
+                                    liveViewPixelData[imageDataIndex + 3] = a;
+                                }
+                                liveViewCtx.putImageData(liveViewImageData, 0, 0);
+                            }
+
+                            drawGrid();
+                            addPixelLogEntry(x, y, color);
+
+                            // Update last update time
+                            if (timestamp && timestamp > lastUpdateTime) {
+                                lastUpdateTime = timestamp;
+                            }
+                        }
+                    });
+                }
+
+                // Update lastUpdateTime even if no updates to avoid redundant requests
+                if (data.currentTime) {
+                    lastUpdateTime = data.currentTime;
+                }
+            }
+        } catch (error) {
+            console.error("Error polling for updates:", error);
+            // Don't spam logs, just continue polling
+        }
+    }
+
+    // Initialize GridTender for authentication and admin features
+    window.gridTender = new GridTender({
+        backendUrl: BACKEND_URL,
+        debugMode: true
+    });
 
     init();
 });

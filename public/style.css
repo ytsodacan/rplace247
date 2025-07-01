@@ -91,12 +91,6 @@ body {
 	/* matching the container this is within */
 }
 
-.pixel-chat-container h3 {
-	margin-top: 0;
-	margin-bottom: 5px;
-	color: #9aff9a;
-}
-
 #pixelChatLog {
 	background-color: #1a1a1a;
 	/* Dark background */

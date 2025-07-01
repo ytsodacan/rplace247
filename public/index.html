@@ -742,11 +742,19 @@
         <div class="container mx-auto px-6 relative">
             <div class="flex items-center justify-center relative">
                 <h1 class="text-center mr-auto">Neuro.Place</h1>
-                <button id="openSettingsBtn"
-                    class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500 ml-auto">
-                    <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar"
-                        src="user.png">
-                </button>
+                <div class="flex items-center gap-2 ml-auto">
+                    <button id="adminToggleBtn"
+                        class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-purple-600 hover:bg-purple-700 transition-colors hidden"
+                        title="Toggle Admin Panel">
+                        <span class="material-icons-round text-white"
+                            style="font-size: 16px;">admin_panel_settings</span>
+                    </button>
+                    <button id="openSettingsBtn"
+                        class="w-8 h-8 rounded-full flex items-center justify-center p-0 overflow-hidden bg-gray-500 ml-auto">
+                        <img id="userAvatar" class="w-full h-full object-cover rounded-full" alt="User Avatar"
+                            src="user.png">
+                    </button>
+                </div>
             </div>
         </div>
     </header>
@@ -798,11 +806,20 @@
                         Login with Discord
                     </button>
                     <div id="userInfo" class="hidden items-center space-x-2 mt-4">
-
-                        <span id="userName" class="text-primary font-semibold block"></span>
-                        <button id="logoutBtn" class="text-sm text-muted hover:text-error">Logout</button>
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex flex-col">
+                                <span id="userName" class="text-primary font-semibold block"></span>
+                                <div id="gridTenderStatus" class="grid-tender-status-inline mt-1">
+                                    <div class="status-label-small">Status</div>
+                                    <div class="status-value" id="authStatusText">Not authenticated</div>
+                                </div>
+                            </div>
+                            <button id="logoutBtn" class="btn btn-danger">
+                                <span class="material-icons-round" style="font-size: 1rem;">logout</span>
+                                Logout
+                            </button>
+                        </div>
                     </div>
-
                 </div>
 
                 <div class="setting-item">
@@ -862,6 +879,12 @@
     </footer>
 
     <script type="module" src="script.js"></script>
+    <script src="grid-tender.js"></script>
+    <script>
+        // in Cloudflare KV store
+        // nothing to do on client side
+        window.GRID_TENDER_ADMIN_IDS = [];
+    </script>
     <script>
         const openSettingsBtn = document.getElementById('openSettingsBtn');
         const settingsModal = document.getElementById('settingsModal');
