@@ -4,9 +4,9 @@
 
 A collaborative pixel placement app for the Neurosama community
 
-# Changelog
+## Changelog
 
-## 7/2/25
+### 7/2/25
 
 - Added robots.txt
 - Added privacy policy
@@ -18,11 +18,13 @@ Known issues:
 
 - Webhook was fubar but may be fixed now??
 
+- Reconnect button is MIA
+
 - Does not support `grab` method of moving admin panel yet (touch use)
 
 - need to add obvious user opt out for analytics and active user tracking
 
-## 7/1/25
+### 7/1/25
 
 - Back to a stable state
 - Fixed the "grid doesn't load and nothing works" issue
