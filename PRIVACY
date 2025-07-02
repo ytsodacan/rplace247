@@ -1,0 +1,67 @@
+# About this file
+
+This privacy policy describes how we handle user data in the Neurosama.place Pixel Placement App, focusing on analytics and active user tracking. From now on, we will refer to this app as "the App".
+
+It applies to your use of the App, including any data collected through analytics and active user features.
+
+## At a glance examples
+
+- **Analytics**: We track pixel placements, user sessions, and authentication flows to improve the App.
+- **Active Users**: We display real-time active users to enhance community engagement.
+
+For the purposes of this policy, "we", "us", and "our" refer to the developers and operators of the App.
+"User", "you", and "your" refer to anyone who uses the App.
+Details about how we collect, use, and protect your data are outlined below.
+
+### Data Collection
+
+- **Pixel Placement Events**: We collect data on pixel placements, including coordinates, device type, input method, and session details.
+- **User Session Events**: We track user authentication flows, including session start, authentication completion, and session end.
+- **Device Information**: We collect device type (mobile, desktop, tablet) and input method (spacebar, button, touch)
+- **User IDs**: We hash user IDs for privacy, truncating to 8 characters
+- **Session IDs**: Unique per browser session to track user activity without storing PII
+
+### Data Usage
+
+- **Analytics**: We use the collected data to analyze user behavior, improve the App, and generate reports on user engagement.
+- **Active Users Display**: We show real-time active users to enhance community interaction, including usernames, device types, and recent activity.
+- **Historical Analysis**: We may use aggregated data for long-term trends and insights, but never with personally identifiable information.
+
+### Data Retention
+
+- **Auto-Cleanup**: Old data is automatically cleaned up after 30 days to ensure we do not retain unnecessary information.
+- **Session Data**: Active user data is retained for 5 minutes to provide real-time updates, after which it is removed.
+- **No Persistent Storage**: We do not store user activity persistently; all data is transient and used only for real-time features.
+
+### User Control
+
+- **Opt-Out**: Users can opt-out of analytics and active user tracking at any time. This will disable data collection for their sessions.
+- **Data Access**: Users can request access to their data or request deletion of their data at any time.
+- **Consent**: Users are prompted to consent to data collection before authenticating, ensuring they are aware of what data is being collected and how it will be used.
+
+### Security
+
+- **Data Protection**: We implement industry-standard security measures to protect user data, including encryption in transit and at rest.
+- **Access Control**: Only authorized personnel have access to analytics data, and all access is logged for auditing purposes.
+- **No PII Storage**: We do not store personally identifiable information (PII) in our analytics events, ensuring user privacy is maintained.
+
+### Transparency
+
+- **Clear Documentation**: This privacy policy is available to all users, explaining how data is collected, used, and retained.
+- **Prompt Updates**: We will update this policy as needed to reflect changes in our data practices or legal requirements.
+- **User Notifications**: Users will be notified of significant changes to this policy via in-app notifications, as we do not collect any other means of contact (e.g., email).
+
+### Compliance
+
+- **GDPR Compliance**: We comply with GDPR requirements for data protection and user rights.
+- **CCPA Compliance**: We adhere to CCPA guidelines, providing users with rights to access, delete, and opt-out of data collection.
+- **Legal Obligations**: We will comply with any legal requests for data access or deletion as required by law, while ensuring user privacy is maintained to the greatest extent possible.
+
+### Contact Information
+
+- For any questions or concerns about this privacy policy, please contact us via the in-app credits; all maintainers are listed with contact information in the settings menu. You may also reach out via discord, specifically the Neuro-sama community server or the Neuro.place server itself.
+- We are committed to addressing any privacy concerns promptly and transparently.
+
+### Summary
+
+This privacy policy outlines how the App collects, uses, and protects user data, focusing on analytics and active user tracking. We prioritize user privacy, data security, and transparency in our practices. By using the App, you agree to the terms outlined in this policy. If you do not agree with these terms, please do not use the App.

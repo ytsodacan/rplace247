@@ -1,0 +1,29 @@
+User-agent: *
+
+Allow: /
+Allow: /index.html
+Allow: /callback.html
+Allow: /favicon.ico
+Allow: /favicon.svg
+Allow: /favicon-96x96.png
+Allow: /apple-touch-icon.png
+Allow: /site.webmanifest
+Allow: /web-app-manifest-192x192.png
+Allow: /web-app-manifest-512x512.png
+Allow: /style.css
+Allow: /script.js
+Allow: /grid-tender.js
+Allow: /oauth-callback.js
+Allow: /First_Coffee.ttf
+Allow: /user.png
+
+Disallow: /auth/
+Disallow: /admin/
+Disallow: /api/
+Disallow: /ws
+Disallow: /grid
+Disallow: /pixel
+Disallow: /whitelist/
+Disallow: /announcement
+
+Crawl-delay: 1

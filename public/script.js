@@ -1,5 +1,4 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Initialize theme toggle button as early as possible
     const earlyThemeToggleBtn = document.getElementById("themeToggleBtn");
     if (earlyThemeToggleBtn) {
         console.log("Found theme toggle button early");
@@ -20,12 +19,9 @@ document.addEventListener("DOMContentLoaded", () => {
         `wss://${window.location.host}/ws`;
     const OAUTH_CLIENT_ID = "1388712213002457118";
 
-    // Log dev mode detection
     console.log(`GridTender: Dev mode detected: ${IS_DEV_MODE}`);
     console.log(`GridTender: WebSocket URL: ${WEBSOCKET_URL}`);
 
-    // OAuth redirect URI uses current origin so Discord can redirect back to the frontend
-    // The frontend /callback then posts to the worker at /auth/discord
     const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 
     const PIXEL_SIZE = 10;
@@ -67,7 +63,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let fallbackMode = false;
     let fallbackPollingInterval = null;
     let lastUpdateTime = 0;
-    const FALLBACK_POLL_INTERVAL = 2000; // Poll every 2 seconds in fallback mode
+    const FALLBACK_POLL_INTERVAL = 2000;
     const MAX_RECONNECT_ATTEMPTS = 3;
     const RECONNECT_DELAY = 1000;
     const sessionId = generateSessionId();
@@ -145,20 +141,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return [r, g, b, 255];
     }
 
-    // Convert RGB color to hex format
     function rgbToHex(rgb) {
-        // If rgb is already a hex string, return it
         if (typeof rgb === "string" && rgb.startsWith("#")) {
             return rgb;
         }
 
-        // If rgb is an array [r,g,b] or [r,g,b,a]
         if (Array.isArray(rgb)) {
             const [r, g, b] = rgb;
             return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
         }
 
-        // If rgb is a string like "rgb(r,g,b)" or "rgba(r,g,b,a)"
         if (
             typeof rgb === "string" &&
             (rgb.startsWith("rgb(") || rgb.startsWith("rgba("))
@@ -168,13 +160,11 @@ document.addEventListener("DOMContentLoaded", () => {
             return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
         }
 
-        // Default fallback
         return "#000000";
     }
 
     async function getGrid() {
         try {
-            // First, get grid metadata
             const metaResponse = await fetch(`${BACKEND_URL}/grid`);
             if (!metaResponse.ok) {
                 throw new Error(`HTTP error! status: ${metaResponse.status}`);
@@ -187,10 +177,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             console.log(`Loading grid in ${metadata.totalChunks} chunks...`);
 
-            // Initialize empty grid
             const grid = Array(GRID_HEIGHT).fill(0).map(() => Array(GRID_WIDTH).fill("#FFFFFF"));
 
-            // Load all chunks
             for (let chunkIndex = 0; chunkIndex < metadata.totalChunks; chunkIndex++) {
                 const chunkResponse = await fetch(`${BACKEND_URL}/grid?chunk=${chunkIndex}`);
                 if (!chunkResponse.ok) {
@@ -198,7 +186,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
                 const chunkData = await chunkResponse.json();
 
-                // Copy chunk data into the grid
                 for (let localRow = 0; localRow < chunkData.data.length; localRow++) {
                     const globalRow = chunkData.startRow + localRow;
                     if (globalRow < GRID_HEIGHT) {
@@ -222,9 +209,30 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    async function placePixel(x, y, color) {
+    const sessionStartTime = Date.now();
+    let firstPlacementTime = null;
+    let placementCount = 0;
+
+    function detectDevice() {
+        const userAgent = navigator.userAgent;
+        if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+            if (/iPad|tablet/i.test(userAgent)) return 'tablet';
+            return 'mobile';
+        }
+        return 'desktop';
+    }
+
+    async function placePixel(x, y, color, inputMethod = 'unknown') {
         try {
-            // Check if GridTender is available and use its enhanced pixel placement
+            placementCount++;
+            const currentTime = Date.now();
+            if (!firstPlacementTime) {
+                firstPlacementTime = currentTime;
+            }
+
+            const timeToFirstPlacement = firstPlacementTime - sessionStartTime;
+            const sessionDuration = currentTime - sessionStartTime;
+
             if (window.gridTender) {
                 const result = await window.gridTender.placePixel(x, y, color);
                 if (result.success) {
@@ -235,8 +243,17 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            // Fallback to original implementation if GridTender is not available
-            const headers = { "Content-Type": "application/json" };
+            const headers = {
+                "Content-Type": "application/json",
+                "X-Input-Method": inputMethod,
+                "X-Session-Id": sessionId,
+                "X-Timestamp": sessionStartTime.toString(),
+                "X-Session-Duration": sessionDuration.toString(),
+                "X-Placement-Count": placementCount.toString(),
+                "X-Time-To-First": timeToFirstPlacement.toString(),
+                "X-Device-Type": detectDevice()
+            };
+
             if (userToken) {
                 headers.Authorization = `Bearer ${userToken}`;
             }
@@ -249,6 +266,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     y,
                     color,
                     sessionId,
+                    inputMethod,
+                    timeToFirstPlacement,
+                    sessionDuration,
+                    placementCount,
                     user: userData,
                 }),
             });
@@ -274,7 +295,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Calculate the exact pixel position
         const pixelX = x * PIXEL_SIZE;
         const pixelY = y * PIXEL_SIZE;
 
@@ -302,7 +322,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         ctx.save();
 
-        // Ensure we're using integer pixel values for the translation to avoid blurriness
         const intOffsetX = Math.round(offsetX);
         const intOffsetY = Math.round(offsetY);
 
@@ -313,7 +332,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         ctx.restore();
 
-        // Draw highlight on separate canvas
         drawHighlight();
     }
 
@@ -323,7 +341,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selectedPixel.x !== null && selectedPixel.y !== null) {
             highlightCtx.save();
 
-            // Use the same integer offsets as in drawGrid
             const intOffsetX = Math.round(offsetX);
             const intOffsetY = Math.round(offsetY);
 
@@ -498,6 +515,84 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    let activeUsersInterval = null;
+    const activeUsersList = document.getElementById("activeUsersList");
+
+    function getDeviceIcon(deviceType) {
+        switch (deviceType) {
+            case 'mobile':
+                return '<i class="fa-solid fa-mobile-screen-button active-user-device"></i>';
+            case 'tablet':
+                return '<i class="fa-solid fa-tablet-screen-button active-user-device"></i>';
+            case 'desktop':
+            default:
+                return '<i class="fa-solid fa-desktop active-user-device"></i>';
+        }
+    }
+
+    async function updateActiveUsers() {
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/active-users?window=30000`);
+            if (!response.ok) {
+                throw new Error('Failed to fetch active users');
+            }
+
+            const data = await response.json();
+            displayActiveUsers(data.activeUsers, data.count);
+        } catch (error) {
+            console.error('Error fetching active users:', error);
+            displayActiveUsers([], 0);
+        }
+    }
+
+    function displayActiveUsers(users, count) {
+        if (!activeUsersList) return;
+
+        if (users.length === 0) {
+            activeUsersList.innerHTML = '<div class="active-users-empty">No users active in the last 30 seconds</div>';
+            return;
+        }
+
+        const usersHTML = users.map(user => {
+            const deviceIcon = getDeviceIcon(user.deviceType);
+            const isPlacing = user.isPlacingPixels;
+            const statusClass = isPlacing ? 'placing' : '';
+            const placementText = user.recentPlacements > 0 ? `${user.recentPlacements}` : '';
+
+            return `
+                <div class="active-user-item">
+                    <div class="active-user-info">
+                        ${deviceIcon}
+                        <span class="active-user-name">${user.username}</span>
+                    </div>
+                    <div class="active-user-status">
+                        ${placementText ? `<span class="placement-count">${placementText}</span>` : ''}
+                        <div class="status-dot ${statusClass}" title="${isPlacing ? 'Currently placing pixels' : 'Online'}"></div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        activeUsersList.innerHTML = usersHTML;
+    }
+
+    function startActiveUsersPolling() {
+        if (activeUsersInterval) {
+            clearInterval(activeUsersInterval);
+        }
+
+        updateActiveUsers();
+
+        activeUsersInterval = setInterval(updateActiveUsers, 5000);
+    }
+
+    function stopActiveUsersPolling() {
+        if (activeUsersInterval) {
+            clearInterval(activeUsersInterval);
+            activeUsersInterval = null;
+        }
+    }
+
     function addPixelLogEntry(x, y, color) {
         if (!pixelChatLog) {
             console.error("Pixel chat log element not found.");
@@ -506,9 +601,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const logEntry = document.createElement("div");
         logEntry.className = "log-entry";
-        let finalContentHTML = ""; // This will hold the full HTML with colors
+        let finalContentHTML = "";
 
-        // --- YOUR LOGIC TO DETERMINE finalContentHTML ---
         if (typeof y === "number" && typeof x === "number") {
             finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         } else if (
@@ -521,88 +615,68 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
         }
-        // --- END YOUR LOGIC ---
 
-        // The actual text content will be built incrementally within the 'typed-container'
         logEntry.innerHTML = `
         <i class="fa-solid fa-circle" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;"></i>
         <span class="typing-target"></span>
     `;
 
         pixelChatLog.appendChild(logEntry);
-        pixelChatLog.scrollTop = pixelChatLog.scrollHeight; // Scroll to show the new entry immediately
+        pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
 
-        // Get the element where the typing will occur
         const typingTargetElement = logEntry.querySelector(".typing-target");
         if (!typingTargetElement) {
             console.error("Typing target element not found.");
             return;
         }
 
-        // --- Typing Logic Adapted from CodePen ---
         let i = 0;
-        let isTag = false; // Flag to indicate if we are inside an HTML tag
-        const typingSpeed = 60; // Adjust this speed as needed (CodePen uses 60ms)
-        const originalText = finalContentHTML; // The full HTML string to type
+        let isTag = false;
+        const typingSpeed = 60;
+        const originalText = finalContentHTML;
 
         function type() {
-            // Get the current substring to display
             const text = originalText.slice(0, ++i);
 
-            // If all text is typed, stop the animation
             if (text === originalText) {
-                typingTargetElement.innerHTML = text; // Ensure final content is set without cursor
-                pixelChatLog.scrollTop = pixelChatLog.scrollHeight; // Final scroll
+                typingTargetElement.innerHTML = text;
+                pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
                 return;
             }
 
-            // Check if the last character is '<' (start of tag) or '>' (end of tag)
             const char = text.slice(-1);
             if (char === "<") isTag = true;
             if (char === ">") isTag = false;
 
-            // Update the element's HTML with the current text and the blinking cursor
-            // The cursor should always be at the end of the visible text
             typingTargetElement.innerHTML =
                 `${text}<span class='blinker'>&#32;</span>`;
 
-            // If currently inside a tag, call type() immediately without delay
             if (isTag) {
-                type(); // No setTimeout, just call itself to quickly append the rest of the tag
+                type();
             } else {
-                // Otherwise, set a timeout for the next character
                 setTimeout(type, typingSpeed);
             }
 
-            // Optional: Scroll during typing if the content is long, but can be jumpy
-            // pixelChatLog.scrollTop = pixelChatLog.scrollHeight;
         }
 
-        // Start the typing animation
         type();
     }
 
     function getGridCoordsFromScreen(clientX, clientY) {
-        // Use the bounding rectangle of the canvas itself for the most accurate calculation
         const rect = canvas.getBoundingClientRect();
 
-        // Calculate the position within the canvas element
         const canvasX = clientX - rect.left;
         const canvasY = clientY - rect.top;
 
-        // Apply the inverse of the canvas transformation to get world coordinates
-        // Use the same integer offsets as in drawGrid for consistency
         const intOffsetX = Math.round(offsetX);
         const intOffsetY = Math.round(offsetY);
 
         const worldX = (canvasX - intOffsetX) / scale;
         const worldY = (canvasY - intOffsetY) / scale;
 
-        // Convert world coordinates to grid coordinates
         const gridX = Math.floor(worldX / PIXEL_SIZE);
         const gridY = Math.floor(worldY / PIXEL_SIZE);
 
-        // Check if the grid coordinates are within bounds
         if (gridX >= 0 && gridX < GRID_WIDTH && gridY >= 0 && gridY < GRID_HEIGHT) {
             return { x: gridX, y: gridY };
         }
@@ -617,18 +691,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 `Click resolved to grid coordinates: (${gridCoords.x}, ${gridCoords.y})`,
             );
 
-            // Check if the selection has changed
             if (
                 selectedPixel.x !== gridCoords.x ||
                 selectedPixel.y !== gridCoords.y
             ) {
-                // Selection changed
             }
 
             selectedPixel.x = gridCoords.x;
             selectedPixel.y = gridCoords.y;
 
-            // Update color picker to show the current color at this position
             const index = gridCoords.y * GRID_WIDTH + gridCoords.x;
             const currentColor = grid[index];
 
@@ -638,24 +709,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("colorPickerText").textContent = hexColor;
             }
 
-            // Update the selected coordinates display
             updateSelectedCoordsDisplay();
 
-            // Redraw to show the highlight
             drawHighlight();
         } else {
-            // Click was outside the grid
             if (selectedPixel.x !== null) {
-                // Selection was cleared
             }
 
             selectedPixel.x = null;
             selectedPixel.y = null;
 
-            // Update the selected coordinates display
             updateSelectedCoordsDisplay();
 
-            // Redraw to clear the highlight
             drawHighlight();
         }
     }
@@ -663,7 +728,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function handleMouseDown(event) {
         isDragging = true;
 
-        // Store the exact client coordinates
         lastMouseX = event.clientX;
         lastMouseY = event.clientY;
         lastClickX = event.clientX;
@@ -697,7 +761,6 @@ document.addEventListener("DOMContentLoaded", () => {
         const dy = event.clientY - lastClickY;
 
         if (Math.abs(dx) < CLICK_THRESHOLD && Math.abs(dy) < CLICK_THRESHOLD) {
-            // Use the current mouse position for better accuracy
             handleUserInteractionClick({
                 clientX: event.clientX,
                 clientY: event.clientY,
@@ -848,7 +911,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        placePixel(selectedPixel.x, selectedPixel.y, currentColor);
+        placePixel(selectedPixel.x, selectedPixel.y, currentColor, 'button');
 
         if (enforceCooldown) {
             startCooldownTimer();
@@ -889,7 +952,21 @@ document.addEventListener("DOMContentLoaded", () => {
             case "Spacebar":
             case "Space":
                 event.preventDefault();
-                handlePlacePixelClick();
+                if (selectedPixel.x !== null && selectedPixel.y !== null) {
+                    if (isCooldownActive()) {
+                        const remaining = Math.ceil(
+                            (COOLDOWN_DURATION_MS - (Date.now() - lastPixelTime)) / 1000,
+                        );
+                        alert(`Please wait ${remaining}s before placing another pixel.`);
+                        return;
+                    }
+                    placePixel(selectedPixel.x, selectedPixel.y, currentColor, 'spacebar');
+                    if (enforceCooldown) {
+                        startCooldownTimer();
+                    }
+                } else {
+                    alert("Please select a pixel on the canvas first!");
+                }
                 return;
             default:
                 return;
@@ -926,12 +1003,11 @@ document.addEventListener("DOMContentLoaded", () => {
             addPixelLogEntry("System", "Reconnecting...", "#ffff00");
             btn.disabled = true;
 
-            // Disable fallback mode when manually reconnecting
             if (fallbackMode) {
                 disableFallbackMode();
             }
 
-            reconnectAttempts = 0; // Reset attempts for manual reconnection
+            reconnectAttempts = 0;
             connectWebSocket();
             getGrid();
         });
@@ -960,7 +1036,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 reconnectAttempts = 0;
                 fallbackMode = false;
 
-                // Clear any existing fallback polling
                 if (fallbackPollingInterval) {
                     clearInterval(fallbackPollingInterval);
                     fallbackPollingInterval = null;
@@ -1002,12 +1077,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         drawGrid();
                         addPixelLogEntry(x, y, color);
                     } else if (data.type === "broadcast") {
-                        // Handle broadcast messages from admins
                         if (window.gridTender) {
                             window.gridTender.handleBroadcastMessage(data);
                         }
                     } else if (data.type === "announcement") {
-                        // Handle announcement updates
                         if (window.gridTender) {
                             window.gridTender.updateAnnouncementDisplay(data.announcement || '');
                         }
@@ -1032,12 +1105,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         RECONNECT_DELAY * reconnectAttempts,
                     );
                 } else {
-                    // If in dev mode and all reconnection attempts failed, enable fallback
                     if (IS_DEV_MODE) {
                         console.log("WebSocket reconnection failed in dev mode, enabling fallback");
                         enableFallbackMode();
                     } else {
-                        // In production, also enable fallback as a safety net
                         console.log("WebSocket reconnection failed, enabling fallback mode");
                         enableFallbackMode();
                     }
@@ -1048,7 +1119,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 console.error("WebSocket error:", error);
                 addPixelLogEntry("System", "Connection Error", "#ff9900");
 
-                // In dev mode or after max attempts, try fallback on WebSocket error
                 if (IS_DEV_MODE && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                     console.log("WebSocket failed in dev mode, enabling fallback");
                     enableFallbackMode();
@@ -1065,7 +1135,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 "#ff9900",
             );
 
-            // Enable fallback immediately if WebSocket creation fails
             if (IS_DEV_MODE) {
                 console.log("WebSocket creation failed in dev mode, enabling fallback");
                 enableFallbackMode();
@@ -1280,22 +1349,17 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         function clearChatLog() {
-            // Get all div children that are chat log items
             const chatItems = pixelChatLog.querySelectorAll('.log-entry');
             chatItems.forEach(item => {
-                item.remove(); // Remove each item
+                item.remove();
             });
 
             console.log('pixelChatLog cleared at:', new Date().toLocaleTimeString());
         }
-        // Set the maximum number of chat log entries
         const MAX_CHAT_LOG_ENTRIES = 30;
-        // ONLY if log is full:
         if (pixelChatLog.children.length > MAX_CHAT_LOG_ENTRIES) {
-            // The interval will call clearChatLog every 200000 milliseconds (3mins)
             const clearChatInterval = setInterval(clearChatLog, 200000);
 
-            // Clear intervals if the page is unloaded
             window.addEventListener('beforeunload', () => {
                 clearInterval(clearChatInterval);
             });
@@ -1305,7 +1369,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         updateSelectedCoordsDisplay();
 
-        // Initialize lastUpdateTime for polling fallback
         lastUpdateTime = Date.now();
 
         setupWebSocket();
@@ -1316,6 +1379,8 @@ document.addEventListener("DOMContentLoaded", () => {
         updateUserInterface();
         initTheme();
 
+        startActiveUsersPolling();
+
         console.log("Frontend initialized!");
     }
 
@@ -1325,26 +1390,22 @@ document.addEventListener("DOMContentLoaded", () => {
         addPixelLogEntry("System", "Websocket is down.", "#ff0000");
         console.log("Enabled fallback polling mode.");
 
-        // Start polling for updates
         if (!fallbackPollingInterval) {
             fallbackPollingInterval = setInterval(pollForUpdates, FALLBACK_POLL_INTERVAL);
         }
 
-        // Hide reconnect button since we're in fallback mode
         reconnectButton.style.display = "none";
     }
 
-    // simulates failed websocket for testing
     window.testFallbackMode = () => {
         console.log("Testing fallback mode...");
         if (socket) {
             socket.close();
         }
-        reconnectAttempts = MAX_RECONNECT_ATTEMPTS; // Force max attempts reached
+        reconnectAttempts = MAX_RECONNECT_ATTEMPTS;
         enableFallbackMode();
     };
 
-    // Test function to verify the /api/updates endpoint works
     window.testUpdatesEndpoint = async () => {
         try {
             console.log("Testing /api/updates endpoint...");
@@ -1407,7 +1468,6 @@ document.addEventListener("DOMContentLoaded", () => {
                             drawGrid();
                             addPixelLogEntry(x, y, color);
 
-                            // Update last update time
                             if (timestamp && timestamp > lastUpdateTime) {
                                 lastUpdateTime = timestamp;
                             }
@@ -1415,18 +1475,15 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
                 }
 
-                // Update lastUpdateTime even if no updates to avoid redundant requests
                 if (data.currentTime) {
                     lastUpdateTime = data.currentTime;
                 }
             }
         } catch (error) {
             console.error("Error polling for updates:", error);
-            // Don't spam logs, just continue polling
         }
     }
 
-    // Initialize GridTender for authentication and admin features
     window.gridTender = new GridTender({
         backendUrl: BACKEND_URL,
         debugMode: true
