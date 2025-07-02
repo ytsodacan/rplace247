@@ -548,6 +548,11 @@ document.addEventListener("DOMContentLoaded", () => {
     function displayActiveUsers(users, count) {
         if (!activeUsersList) return;
 
+        const activeUsersCount = document.getElementById("activeUsersCount");
+        if (activeUsersCount) {
+            activeUsersCount.textContent = `(${count})`;
+        }
+
         if (users.length === 0) {
             activeUsersList.innerHTML = '<div class="active-users-empty">No users active in the last 30 seconds</div>';
             return;
