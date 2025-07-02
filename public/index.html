@@ -13,6 +13,14 @@
     <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=circle" />
     <style>
+        @font-face {
+            font-family: 'First Coffee';
+            src: url('First_Coffee.ttf') format('truetype');
+            font-weight: normal;
+            font-style: normal;
+            font-display: swap;
+        }
+
         :root {
             --bg-primary: #fafafa;
             --bg-secondary: #ffffff;
@@ -69,7 +77,8 @@
         body {
             height: 100%;
             overflow: hidden;
-            font-family: 'Inter', sans-serif;
+            font-family: 'First Coffee', serif;
+            font-weight: 100;
             background: var(--bg-primary);
             color: var(--text-primary);
             transition: background-color 0.3s ease, color 0.3s ease;
@@ -180,7 +189,8 @@
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            font-weight: 700;
+            font-family: 'First Coffee', serif;
+            font-weight: 100;
             font-size: 2rem;
             letter-spacing: -0.025em;
         }
