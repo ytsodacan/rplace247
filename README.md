@@ -12,7 +12,7 @@ Fixed grid corruption on Durable Object hibernation. Added backup system, corrup
 
 See [full changelog](./changelog.md) for details.
 
-Website: [neuro.place](https://neurosama.place)
+Website: [neurosama.place](https://neurosama.place)
 
 ## Features
 
