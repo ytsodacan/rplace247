@@ -6,23 +6,21 @@
 class GridTender {
 	constructor(options = {}) {
 		this.backendUrl = options.backendUrl || window.location.origin;
-		this.adminUserIds = options.adminUserIds || []; // Discord user IDs who can manage whitelist
-		this.whitelistEnabled = options.whitelistEnabled !== false; // Enable whitelist by default
+		this.adminUserIds = options.adminUserIds || [];
+		this.whitelistEnabled = options.whitelistEnabled !== false;
 		this.debugMode = options.debugMode !== false;
 
-		// Authentication state
 		this.userToken = null;
 		this.userData = null;
 		this.isAuthenticated = false;
 		this.isWhitelisted = false;
 		this.isAdmin = false;
 
-		// UI elements
 		this.statusElement = null;
 		this.adminPanelElement = null;
 		this.adminToggleBtn = null;
-		this.isAdminPanelCollapsed = true; // Start collapsed
-		this.adminPanelPosition = { x: 0, y: 0 }; // Will be centered on first show
+		this.isAdminPanelCollapsed = true;
+		this.adminPanelPosition = { x: 0, y: 0 };
 		this.isDragging = false;
 		this.dragOffset = { x: 0, y: 0 };
 
@@ -35,7 +33,6 @@ class GridTender {
 	async init() {
 		this.log("Initializing GridTender...");
 
-		// Load authentication state
 		await this.loadAuthState();
 
 		this.log(
@@ -45,14 +42,11 @@ class GridTender {
 			this.userData,
 		);
 
-		// Store initial state for comparison
 		this.previousAuthState = this.isAuthenticated;
 		this.previousWhitelistState = this.isWhitelisted;
 
-		// Create UI elements
 		this.createUI();
 
-		// Check whitelist status if authenticated
 		if (this.isAuthenticated) {
 			this.log("User is authenticated, checking whitelist status...");
 			await this.checkWhitelistStatus();
@@ -60,10 +54,8 @@ class GridTender {
 			this.log("User is NOT authenticated, skipping whitelist check");
 		}
 
-		// Set up event listeners
 		this.setupEventListeners();
 
-		// Load current announcement
 		await this.loadCurrentAnnouncement();
 
 		this.log("GridTender initialized successfully");
@@ -73,7 +65,6 @@ class GridTender {
 	 * Load authentication state from localStorage
 	 */
 	async loadAuthState() {
-		// Store previous state for comparison
 		const previousAuth = this.isAuthenticated;
 
 		this.userToken = localStorage.getItem("discord_token");
@@ -90,7 +81,6 @@ class GridTender {
 			try {
 				this.userData = JSON.parse(userDataStr);
 				this.isAuthenticated = true;
-				// Admin status will be determined by the backend via checkWhitelistStatus
 				this.log("Authentication state loaded", this.userData);
 			} catch (error) {
 				this.log("Error parsing user data", error);
@@ -104,7 +94,6 @@ class GridTender {
 			this.isAdmin = false;
 		}
 
-		// Check for authentication status changes
 		if (
 			this.previousAuthState !== undefined &&
 			previousAuth !== this.isAuthenticated
@@ -116,14 +105,11 @@ class GridTender {
 			}
 		}
 
-		// Update the previous state for next time
 		this.previousAuthState = this.isAuthenticated;
 
-		// If we just became authenticated, check whitelist status
 		if (this.isAuthenticated && !previousAuth) {
 			await this.checkWhitelistStatus();
 		} else if (!this.isAuthenticated) {
-			// Update UI immediately if logged out
 			this.updateUI();
 		}
 	}
@@ -131,7 +117,7 @@ class GridTender {
 	/**
 	 * Clear authentication state
 	 */
-	
+
 	clearAuthState() {
 		this.userToken = null;
 		this.userData = null;
@@ -152,7 +138,6 @@ class GridTender {
 			return false;
 		}
 
-		// Store previous whitelist state for comparison
 		const previousWhitelist = this.isWhitelisted;
 		const previousAdmin = this.isAdmin;
 
@@ -175,7 +160,7 @@ class GridTender {
 				console.log("[GridTender] Whitelist status data:", data);
 
 				this.isWhitelisted = data.whitelisted;
-				this.isAdmin = data.isAdmin || false; // Get admin status from backend
+				this.isAdmin = data.isAdmin || false;
 				this.whitelistEnabled = data.whitelistEnabled;
 
 				this.log(
@@ -185,13 +170,11 @@ class GridTender {
 					this.isAdmin,
 				);
 
-				// Create admin panel if user is admin and it doesn't exist yet
 				if (this.isAdmin && !this.adminPanelElement) {
 					this.createAdminPanel();
-					this.addStyles(); // Re-add styles to include admin panel
+					this.addStyles();
 				}
 
-				// Check for whitelist status changes and show appropriate toasts
 				if (this.previousWhitelistState !== undefined) {
 					if (this.isAdmin && !previousAdmin) {
 						this.showToast("Admin access granted", "success");
@@ -210,7 +193,6 @@ class GridTender {
 					}
 				}
 
-				// Update previous state
 				this.previousWhitelistState = this.isWhitelisted;
 			} else {
 				const errorText = await response.text();
@@ -433,15 +415,11 @@ class GridTender {
 	 * Create UI elements
 	 */
 	createUI() {
-		// Use existing status element in the HTML instead of creating new one
 		this.statusElement = document.getElementById("gridTenderStatus");
 
-		// Get the admin toggle button from the header
 		this.adminToggleBtn = document.getElementById("adminToggleBtn");
 
-		// Admin panel will be created later when admin status is confirmed from backend
 
-		// Add styles and update UI
 		this.addStyles();
 		this.updateUI();
 	}
@@ -529,7 +507,6 @@ class GridTender {
                 </div>
             </div>        `;
 
-		// Setup dragging functionality
 		this.setupDragging();
 	}
 
@@ -540,7 +517,6 @@ class GridTender {
 	 * Add CSS styles for GridTender UI
 	 */
 	addStyles() {
-		// Insert admin panel if it exists
 		if (this.adminPanelElement) {
 			document.body.appendChild(this.adminPanelElement);
 		}
@@ -978,14 +954,12 @@ class GridTender {
 	 * Set up event listeners
 	 */
 	setupEventListeners() {
-		// Admin toggle button in header
 		if (this.adminToggleBtn) {
 			this.adminToggleBtn.addEventListener("click", () => {
 				this.toggleAdminPanel();
 			});
 		}
 
-		// Admin panel controls
 		const minimizeBtn = document.getElementById("minimizeAdminPanel");
 		if (minimizeBtn) {
 			minimizeBtn.addEventListener("click", () => {
@@ -1001,7 +975,6 @@ class GridTender {
 			});
 		}
 
-		// Whitelist controls
 		const toggleWhitelistBtn = document.getElementById("toggleWhitelistBtn");
 		if (toggleWhitelistBtn) {
 			toggleWhitelistBtn.addEventListener("click", () => {
@@ -1016,7 +989,6 @@ class GridTender {
 			});
 		}
 
-		// Add user form
 		const addUserBtn = document.getElementById("addUserBtn");
 		if (addUserBtn) {
 			addUserBtn.addEventListener("click", () => {
@@ -1034,7 +1006,6 @@ class GridTender {
 			});
 		}
 
-		// Backup and restore controls
 		const createBackupBtn = document.getElementById("createBackupBtn");
 		if (createBackupBtn) {
 			createBackupBtn.addEventListener("click", async () => {
@@ -1071,7 +1042,6 @@ class GridTender {
 			});
 		}
 
-		// Broadcast controls
 		const sendBroadcastBtn = document.getElementById("sendBroadcastBtn");
 		if (sendBroadcastBtn) {
 			sendBroadcastBtn.addEventListener("click", () => {
@@ -1079,7 +1049,6 @@ class GridTender {
 			});
 		}
 
-		// Announcement controls
 		const updateAnnouncementBtn = document.getElementById(
 			"updateAnnouncementBtn",
 		);
@@ -1098,7 +1067,6 @@ class GridTender {
 			});
 		}
 
-		// Listen for authentication changes
 		window.addEventListener("storage", (e) => {
 			if (e.key === "discord_token" || e.key === "user_data") {
 				this.loadAuthState();
@@ -1147,13 +1115,11 @@ class GridTender {
 			this.log("authStatusText element not found!");
 		}
 
-		// Show/hide admin toggle button
 		if (this.adminToggleBtn) {
 			if (this.isAdmin) {
 				this.adminToggleBtn.classList.remove("hidden");
 			} else {
 				this.adminToggleBtn.classList.add("hidden");
-				// Also hide admin panel if user is no longer admin
 				if (this.adminPanelElement) {
 					this.adminPanelElement.classList.add("hidden");
 					this.isAdminPanelCollapsed = true;
@@ -1161,7 +1127,6 @@ class GridTender {
 			}
 		}
 
-		// Update admin panel if it exists
 		if (this.isAdmin) {
 			this.updateWhitelistUI();
 		}
@@ -1226,7 +1191,6 @@ class GridTender {
 		const toast = document.createElement("div");
 		toast.className = `grid-tender-toast ${type}`;
 
-		// Create toast content with icon
 		const icons = {
 			success: "✓",
 			error: "✗",
@@ -1244,12 +1208,10 @@ class GridTender {
 
 		document.body.appendChild(toast);
 
-		// Trigger animation
 		setTimeout(() => {
 			toast.classList.add("show");
 		}, 10);
 
-		// Auto remove
 		setTimeout(() => {
 			toast.classList.remove("show");
 			setTimeout(() => {
@@ -1318,7 +1280,7 @@ class GridTender {
 
 			if (response.ok) {
 				this.showMessage("Broadcast sent successfully!", "success");
-				messageInput.value = ""; // Clear the input
+				messageInput.value = "";
 			} else {
 				throw new Error(result.message || "Failed to send broadcast");
 			}
@@ -1405,12 +1367,10 @@ class GridTender {
 		let announcementEl = document.getElementById("siteAnnouncement");
 
 		if (!announcementEl) {
-			// Create announcement element if it doesn't exist
 			announcementEl = document.createElement("div");
 			announcementEl.id = "siteAnnouncement";
 			announcementEl.className = "site-announcement";
 
-			// Add it to the header
 			const header = document.querySelector(".header .container");
 			if (header) {
 				header.appendChild(announcementEl);
@@ -1421,7 +1381,6 @@ class GridTender {
 			announcementEl.textContent = announcement;
 			announcementEl.classList.add("show", "animate");
 
-			// Remove animation class after animation completes
 			setTimeout(() => {
 				announcementEl.classList.remove("animate");
 			}, 2000);
@@ -1451,7 +1410,6 @@ class GridTender {
 				if (result.announcement) {
 					this.updateAnnouncementDisplay(result.announcement);
 
-					// Update the input field if user is admin
 					if (this.isAdmin) {
 						const announcementInput =
 							document.getElementById("announcementInput");
@@ -1490,7 +1448,6 @@ class GridTender {
 
 			handle.style.cursor = "grabbing";
 
-			// Use arrow functions to maintain 'this' context
 			const handleDrag = (e) => this.handleDrag(e);
 			const handleDragEnd = () => this.handleDragEnd(handleDrag, handleDragEnd);
 
@@ -1509,7 +1466,6 @@ class GridTender {
 		const x = e.clientX - this.dragOffset.x;
 		const y = e.clientY - this.dragOffset.y;
 
-		// Constrain to viewport
 		const rect = this.adminPanelElement.getBoundingClientRect();
 		const maxX = window.innerWidth - rect.width;
 		const maxY = window.innerHeight - rect.height;
@@ -1520,7 +1476,6 @@ class GridTender {
 		this.adminPanelPosition.x = constrainedX;
 		this.adminPanelPosition.y = constrainedY;
 
-		// Remove the CSS transform and use absolute positioning
 		this.adminPanelElement.style.transform = "none";
 		this.adminPanelElement.style.left = `${constrainedX}px`;
 		this.adminPanelElement.style.top = `${constrainedY}px`;
@@ -1552,7 +1507,6 @@ class GridTender {
 		this.adminPanelPosition.x = x;
 		this.adminPanelPosition.y = y;
 
-		// Use absolute positioning instead of transform
 		this.adminPanelElement.style.transform = "none";
 		this.adminPanelElement.style.left = `${x}px`;
 		this.adminPanelElement.style.top = `${y}px`;
@@ -1570,7 +1524,6 @@ class GridTender {
 			this.adminPanelElement.classList.add("hidden");
 		} else {
 			this.adminPanelElement.classList.remove("hidden");
-			// Center on first show if not positioned yet
 			if (this.adminPanelPosition.x === 0 && this.adminPanelPosition.y === 0) {
 				setTimeout(() => this.centerAdminPanel(), 10);
 			}
@@ -1597,7 +1550,6 @@ class GridBackup {
 		}
 
 		try {
-			// Get grid data
 			const response = await fetch(`${this.backendUrl}/grid`);
 			if (!response.ok) {
 				throw new Error("Failed to fetch grid data");
@@ -1608,7 +1560,6 @@ class GridBackup {
 				.fill(0)
 				.map(() => Array(500).fill("#FFFFFF"));
 
-			// Load all chunks
 			for (
 				let chunkIndex = 0;
 				chunkIndex < metadata.totalChunks;
@@ -1622,7 +1573,6 @@ class GridBackup {
 				}
 				const chunkData = await chunkResponse.json();
 
-				// Copy chunk data into the grid
 				for (let localRow = 0; localRow < chunkData.data.length; localRow++) {
 					const globalRow = chunkData.startRow + localRow;
 					if (globalRow < 500) {
@@ -1631,7 +1581,6 @@ class GridBackup {
 				}
 			}
 
-			// Create backup object
 			const backup = {
 				timestamp: new Date().toISOString(),
 				version: "1.0",
@@ -1691,12 +1640,10 @@ class GridBackup {
 		}
 
 		try {
-			// Validate backup data
 			if (!backupData.data || !Array.isArray(backupData.data)) {
 				throw new Error("Invalid backup data format");
 			}
 
-			// Send the entire backup data to the backend
 			const response = await fetch(`${this.backendUrl}/admin/grid/restore`, {
 				method: "POST",
 				headers: {
@@ -1802,5 +1749,4 @@ class GridBackup {
 	}
 }
 
-// Create and expose GridTender instance
 window.GridTender = GridTender;

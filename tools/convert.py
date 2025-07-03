@@ -15,7 +15,6 @@ def rgb_to_hex(rgb):
     Returns:
         str: A hexadecimal color string (e.g., "#FFFFFF").
     """
-    # Ensure RGB values are integers and within the valid range [0, 255]
     r, g, b = max(0, min(255, int(rgb[0]))), max(0, min(255, int(rgb[1]))), max(0, min(255, int(rgb[2])))
     return f"#{r:02X}{g:02X}{b:02X}"
 
@@ -43,31 +42,24 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
         target_height (int): The desired height of the grid. Default is 500.
     """
     try:
-        # Open the image
         img = Image.open(image_path)
 
-        # Resize the image to the target dimensions if it's not already
         if img.width != target_width or img.height != target_height:
             print(f"Resizing image from {img.width}x{img.height} to {target_width}x{target_height}...")
             img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
-        # Convert image to RGB mode if it's not already (e.g., for PNGs with alpha)
         img = img.convert("RGB")
 
-        # Get pixel access object
         pixels = img.load()
 
         grid_data = []
         for y in range(img.height):
             row = []
             for x in range(img.width):
-                # Get RGB tuple for the pixel
                 rgb_color = pixels[x, y]
-                # Convert RGB to hex and add to the row
                 row.append(rgb_to_hex(rgb_color))
             grid_data.append(row)
 
-        # Prepare the JSON structure
         json_output = {
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds'),
             "version": "1.0",
@@ -76,7 +68,6 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
             "data": grid_data
         }
 
-        # Save the JSON data to a file
         with open(output_json_path, 'w') as f:
             json.dump(json_output, f, indent=2)
 
@@ -91,13 +82,11 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    # Initialize Tkinter root window
     root = tk.Tk()
-    root.withdraw()  # Hide the main window
+    root.withdraw()
 
     image_path = None
     try:
-        # Open file explorer to select an image
         image_path = filedialog.askopenfilename(
             title="Select an image file",
             filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp *.gif"), ("All files", "*.*")]
@@ -108,7 +97,6 @@ if __name__ == "__main__":
             print("No image file selected. Exiting.")
         else:
             output_json_filename = "output_grid_data.json"
-            # Call the conversion function
             image_to_grid_json(image_path, output_json_filename)
 
     except ImportError:
@@ -118,4 +106,4 @@ if __name__ == "__main__":
         messagebox.showerror("Error", f"An unexpected error occurred: {e}")
         print(f"An unexpected error occurred: {e}")
 
-    root.destroy() # Destroy the Tkinter root window after operations
+    root.destroy()

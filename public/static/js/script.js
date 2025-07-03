@@ -514,7 +514,6 @@ document.addEventListener("DOMContentLoaded", () => {
             updateCooldownTimerDisplay();
         }
 
-        // Admin console is now accessed through Grid Admin panel
     }
 
     let activeUsersInterval = null;
@@ -1048,7 +1047,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     fallbackPollingInterval = null;
                 }
 
-                // Resubscribe admin console if needed
                 if (window.adminConsole) {
                     window.adminConsole.onReconnect();
                 }
@@ -1397,7 +1395,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         startActiveUsersPolling();
 
-        // Initialize collapsible panels
         initCollapsiblePanels();
 
         console.log("Frontend initialized!");
@@ -1503,7 +1500,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Admin Console functionality
     class AdminConsole {
         constructor() {
             this.consoleWindow = null;
@@ -1519,7 +1515,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         initEventListeners() {
-            // Listen for the console window button from Grid Admin
             document.addEventListener('click', (e) => {
                 if (e.target.id === 'openConsoleWindowBtn') {
                     this.openConsoleWindow();
@@ -1528,8 +1523,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         showIfAdmin() {
-            // This method is no longer needed since console is accessed through Grid Admin
-            // Grid Admin panel itself handles admin visibility
         }
 
         createConsoleWindow() {
@@ -1557,19 +1550,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.body.appendChild(this.consoleWindow);
 
-            // Get references to elements
             this.consoleLog = this.consoleWindow.querySelector('#adminConsoleLog');
             this.clearConsoleBtn = this.consoleWindow.querySelector('#clearConsoleBtn');
             const closeBtn = this.consoleWindow.querySelector('#closeConsoleBtn');
 
-            // Setup event listeners
             this.clearConsoleBtn.addEventListener('click', () => this.clear());
             closeBtn.addEventListener('click', () => this.closeConsoleWindow());
 
-            // Setup dragging
             this.setupDragging();
 
-            // Center the window
             this.centerWindow();
         }
 
@@ -1596,7 +1585,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 timestamp: Date.now()
             });
 
-            // Update status in Grid Admin
             const statusEl = document.getElementById('consoleStatus');
             if (statusEl) {
                 statusEl.textContent = 'Connected';
@@ -1610,7 +1598,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 this.isVisible = false;
                 this.unsubscribe();
 
-                // Update status in Grid Admin
                 const statusEl = document.getElementById('consoleStatus');
                 if (statusEl) {
                     statusEl.textContent = 'Disconnected';
@@ -1716,12 +1703,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             this.consoleLog.appendChild(entry);
 
-            // Limit number of entries
             while (this.consoleLog.children.length > this.maxEntries) {
                 this.consoleLog.removeChild(this.consoleLog.firstChild);
             }
 
-            // Auto-scroll to bottom
             this.consoleLog.scrollTop = this.consoleLog.scrollHeight;
         }
 
@@ -1742,7 +1727,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return div.innerHTML;
         }
 
-        // Called when WebSocket reconnects
         onReconnect() {
             if (this.isVisible && this.isSubscribed) {
                 this.isSubscribed = false;
@@ -1753,7 +1737,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     window.adminConsole = new AdminConsole();
 
-    // Collapsible Panel functionality
     function initCollapsiblePanels() {
         const collapsiblePanels = document.querySelectorAll('.collapsible-panel');
 
@@ -1765,7 +1748,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 const togglePanel = () => {
                     panel.classList.toggle('collapsed');
 
-                    // Save state to localStorage
                     const panelId = panel.dataset.panel;
                     const isCollapsed = panel.classList.contains('collapsed');
                     localStorage.setItem(`panel_${panelId}_collapsed`, isCollapsed.toString());
@@ -1779,12 +1761,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        // Restore saved panel states (default to expanded if no saved state)
         collapsiblePanels.forEach(panel => {
             const panelId = panel.dataset.panel;
             const savedState = localStorage.getItem(`panel_${panelId}_collapsed`);
 
-            // Default to expanded if no saved state exists
             if (savedState === 'true') {
                 panel.classList.add('collapsed');
             } else {
