@@ -1,0 +1,25 @@
+{
+  "name": "neurosama.place",
+  "module": "src/index.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy && node scripts/post-deploy.js",
+    "deploy:dev": "wrangler deploy --env dev && node scripts/post-deploy.js dev",
+    "deploy:only": "wrangler deploy",
+    "deploy:dev:only": "wrangler deploy --env dev",
+    "dev": "wrangler dev",
+    "dev:remote": "wrangler dev --env dev --remote"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@cloudflare/workerd-linux-64": "^1.20250701.0",
+    "hono": "^4.8.3",
+    "wrangler": "^4.22.0"
+  }
+}

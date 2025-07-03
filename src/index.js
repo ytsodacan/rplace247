@@ -1115,7 +1115,9 @@ export class GridDurableObject {
           });
         }
 
-        const { x, y, color } = await request.json();
+        const requestData = await request.json();
+        console.log("Received pixel request data:", requestData);
+        const { x, y, color } = requestData;
 
         if (
           x == null ||
@@ -1193,8 +1195,9 @@ export class GridDurableObject {
           status: 200,
           headers: corsHeaders,
         });
-      } catch {
-        return new Response(JSON.stringify({ message: "Invalid JSON" }), {
+      } catch (error) {
+        console.error("Error processing pixel request:", error);
+        return new Response(JSON.stringify({ message: "Invalid JSON", error: error.message }), {
           status: 400,
           headers: corsHeaders,
         });

@@ -275,10 +275,15 @@ document.addEventListener("DOMContentLoaded", () => {
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(
-                    `Failed to place pixel: ${errorData.message || response.statusText}`,
-                );
+                let errorMessage = response.statusText;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.message || response.statusText;
+                } catch {
+                    // Response is not JSON, use statusText
+                    errorMessage = `Server error: ${response.statusText}`;
+                }
+                throw new Error(`Failed to place pixel: ${errorMessage}`);
             }
             console.log(
                 `Pixel placement request sent for (${x}, ${y}) with color ${color}`,
@@ -525,7 +530,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 return '<i class="fa-solid fa-mobile-screen-button active-user-device"></i>';
             case 'tablet':
                 return '<i class="fa-solid fa-tablet-screen-button active-user-device"></i>';
-            case 'desktop':
             default:
                 return '<i class="fa-solid fa-desktop active-user-device"></i>';
         }
@@ -592,12 +596,6 @@ document.addEventListener("DOMContentLoaded", () => {
         activeUsersInterval = setInterval(updateActiveUsers, 5000);
     }
 
-    function stopActiveUsersPolling() {
-        if (activeUsersInterval) {
-            clearInterval(activeUsersInterval);
-            activeUsersInterval = null;
-        }
-    }
 
     function addPixelLogEntry(x, y, color) {
         if (!pixelChatLog) {
