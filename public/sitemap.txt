@@ -1,1 +1,4 @@
-https://neurosama.place/index.html
+https://neurosama.place/
+/index.html
+/static/css/style.css
+/static/js/script.js

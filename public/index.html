@@ -5,8 +5,8 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Neuro.Place</title>
-    <link rel="stylesheet" href="tailwind.css" />
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="static/css/tailwind.css" />
+    <link rel="stylesheet" href="static/css/style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round&display=block" rel="stylesheet" />
@@ -36,7 +36,7 @@
                     <button id="openSettingsBtn"
                         class="ml-auto flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gray-500 p-0">
                         <img id="userAvatar" class="h-full w-full rounded-full object-cover" alt="User Avatar"
-                            src="user.png" />
+                            src="static/img/user.png" />
                     </button>
                 </div>
             </div>
@@ -45,34 +45,50 @@
 
     <div class="flex-container">
         <aside class="left-panel">
-            <div class="panel-section">
-                <h3 class="section-title">
+            <div class="panel-section collapsible-panel" data-panel="liveView">
+                <h3 class="section-title collapsible-header">
                     <span class="material-icons-round" style="font-size: 1rem;">visibility</span>
                     Live View
+                    <button class="panel-toggle ml-auto">
+                        <span class="material-icons-round" style="font-size: 16px;">expand_more</span>
+                    </button>
                 </h3>
-                <div class="live-view-container">
-                    <canvas id="liveViewCanvas"></canvas>
+                <div class="panel-content">
+                    <div class="live-view-container">
+                        <canvas id="liveViewCanvas"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <div class="panel-section">
-                <h3 class="section-title">
+            <div class="panel-section collapsible-panel" data-panel="activeUsers">
+                <h3 class="section-title collapsible-header">
                     <span class="material-icons-round" style="font-size: 1rem;">people</span>
                     Active Users
                     <span id="activeUsersCount" class="ml-2 text-sm text-gray-500">(0)</span>
+                    <button class="panel-toggle ml-auto">
+                        <span class="material-icons-round" style="font-size: 16px;">expand_more</span>
+                    </button>
                 </h3>
-                <div id="activeUsersList" class="active-users-container">
-                    <div class="text-sm text-gray-500">Loading...</div>
+                <div class="panel-content">
+                    <div id="activeUsersList" class="active-users-container">
+                        <div class="text-sm text-gray-500">Loading...</div>
+                    </div>
                 </div>
             </div>
 
-            <div class="panel-section pixel-log-section">
-                <h3 class="section-title">
+            <div class="panel-section pixel-log-section collapsible-panel" data-panel="pixelLog">
+                <h3 class="section-title collapsible-header">
                     <span class="material-icons-round" style="font-size: 1rem;">history</span>
                     Pixel Log
+                    <button class="panel-toggle ml-auto">
+                        <span class="material-icons-round" style="font-size: 16px;">expand_more</span>
+                    </button>
                 </h3>
-                <div id="pixelChatLog" class="pixel-log"></div>
+                <div class="panel-content">
+                    <div id="pixelChatLog" class="pixel-log"></div>
+                </div>
             </div>
+
         </aside>
 
         <main class="main-content" id="main-content">
@@ -102,7 +118,8 @@
                                 <span id="userName" class="text-primary block font-semibold"></span>
                                 <div id="gridTenderStatus" class="grid-tender-status-inline mt-1">
                                     <div class="status-label-small">Status</div>
-                                    <div class="status-value" id="authStatusText">Not authenticated</div>
+                                    <div class="status-value" id="authStatusText">stop trying to hack the site buddy
+                                    </div>
                                 </div>
                             </div>
                             <button id="logoutBtn" class="btn btn-danger">
@@ -311,8 +328,8 @@
         </div>
     </footer>
 
-    <script type="module" src="script.js"></script>
-    <script src="grid-tender.js"></script>
+    <script type="module" src="static/js/script.js"></script>
+    <script src="static/js/grid-tender.js"></script>
     <script>
         window.GRID_TENDER_ADMIN_IDS = [];
     </script>

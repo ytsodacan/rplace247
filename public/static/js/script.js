@@ -513,6 +513,8 @@ document.addEventListener("DOMContentLoaded", () => {
             enforceCooldown = true;
             updateCooldownTimerDisplay();
         }
+
+        // Admin console is now accessed through Grid Admin panel
     }
 
     let activeUsersInterval = null;
@@ -1045,6 +1047,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     clearInterval(fallbackPollingInterval);
                     fallbackPollingInterval = null;
                 }
+
+                // Resubscribe admin console if needed
+                if (window.adminConsole) {
+                    window.adminConsole.onReconnect();
+                }
             };
 
             socket.onmessage = (event) => {
@@ -1088,6 +1095,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (data.type === "announcement") {
                         if (window.gridTender) {
                             window.gridTender.updateAnnouncementDisplay(data.announcement || '');
+                        }
+                    } else if (data.type === "console_log") {
+                        if (window.adminConsole) {
+                            window.adminConsole.addLogEntry(data);
                         }
                     }
                 } catch (error) {
@@ -1386,6 +1397,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         startActiveUsersPolling();
 
+        // Initialize collapsible panels
+        initCollapsiblePanels();
+
         console.log("Frontend initialized!");
     }
 
@@ -1487,6 +1501,296 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error("Error polling for updates:", error);
         }
+    }
+
+    // Admin Console functionality
+    class AdminConsole {
+        constructor() {
+            this.consoleWindow = null;
+            this.consoleLog = null;
+            this.clearConsoleBtn = null;
+            this.isVisible = false;
+            this.isSubscribed = false;
+            this.maxEntries = 100;
+            this.isDragging = false;
+            this.dragOffset = { x: 0, y: 0 };
+
+            this.initEventListeners();
+        }
+
+        initEventListeners() {
+            // Listen for the console window button from Grid Admin
+            document.addEventListener('click', (e) => {
+                if (e.target.id === 'openConsoleWindowBtn') {
+                    this.openConsoleWindow();
+                }
+            });
+        }
+
+        showIfAdmin() {
+            // This method is no longer needed since console is accessed through Grid Admin
+            // Grid Admin panel itself handles admin visibility
+        }
+
+        createConsoleWindow() {
+            this.consoleWindow = document.createElement('div');
+            this.consoleWindow.className = 'admin-console-window floating-panel';
+            this.consoleWindow.innerHTML = `
+                <div class="console-header draggable-handle">
+                    <h3>
+                        <span class="material-icons-round" style="font-size: 1rem;">terminal</span>
+                        Server Console
+                    </h3>
+                    <div class="console-header-controls">
+                        <button id="clearConsoleBtn" class="btn-icon" title="Clear Console">
+                            <span class="material-icons-round">clear</span>
+                        </button>
+                        <button id="closeConsoleBtn" class="btn-icon" title="Close">
+                            <span class="material-icons-round">close</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="console-content">
+                    <div id="adminConsoleLog" class="admin-console-log"></div>
+                </div>
+            `;
+
+            document.body.appendChild(this.consoleWindow);
+
+            // Get references to elements
+            this.consoleLog = this.consoleWindow.querySelector('#adminConsoleLog');
+            this.clearConsoleBtn = this.consoleWindow.querySelector('#clearConsoleBtn');
+            const closeBtn = this.consoleWindow.querySelector('#closeConsoleBtn');
+
+            // Setup event listeners
+            this.clearConsoleBtn.addEventListener('click', () => this.clear());
+            closeBtn.addEventListener('click', () => this.closeConsoleWindow());
+
+            // Setup dragging
+            this.setupDragging();
+
+            // Center the window
+            this.centerWindow();
+        }
+
+        isUserAdmin(userId) {
+            const adminIds = ["146797401720487936", "405184938045079552", "858231473761157170"];
+            return adminIds.includes(userId);
+        }
+
+        openConsoleWindow() {
+            if (!userData || !this.isUserAdmin(userData.id)) {
+                return;
+            }
+
+            if (!this.consoleWindow) {
+                this.createConsoleWindow();
+            }
+
+            this.isVisible = true;
+            this.consoleWindow.classList.remove('hidden');
+            this.subscribe();
+            this.addLogEntry({
+                level: 'info',
+                message: 'Admin console opened',
+                timestamp: Date.now()
+            });
+
+            // Update status in Grid Admin
+            const statusEl = document.getElementById('consoleStatus');
+            if (statusEl) {
+                statusEl.textContent = 'Connected';
+                statusEl.style.color = '#10b981';
+            }
+        }
+
+        closeConsoleWindow() {
+            if (this.consoleWindow) {
+                this.consoleWindow.classList.add('hidden');
+                this.isVisible = false;
+                this.unsubscribe();
+
+                // Update status in Grid Admin
+                const statusEl = document.getElementById('consoleStatus');
+                if (statusEl) {
+                    statusEl.textContent = 'Disconnected';
+                    statusEl.style.color = '#ef4444';
+                }
+            }
+        }
+
+        setupDragging() {
+            const handle = this.consoleWindow.querySelector('.draggable-handle');
+            if (!handle) return;
+
+            handle.style.cursor = 'grab';
+
+            const handleMouseDown = (e) => {
+                this.isDragging = true;
+                handle.style.cursor = 'grabbing';
+                document.body.style.cursor = 'grabbing';
+                document.body.style.userSelect = 'none';
+
+                const rect = this.consoleWindow.getBoundingClientRect();
+                this.dragOffset.x = e.clientX - rect.left;
+                this.dragOffset.y = e.clientY - rect.top;
+
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', _handleMouseUp);
+                e.preventDefault();
+            };
+
+            const handleMouseMove = (e) => {
+                if (!this.isDragging) return;
+
+                const x = e.clientX - this.dragOffset.x;
+                const y = e.clientY - this.dragOffset.y;
+
+                this.consoleWindow.style.left = `${x}px`;
+                this.consoleWindow.style.top = `${y}px`;
+            };
+
+            const _handleMouseUp = () => {
+                this.isDragging = false;
+                handle.style.cursor = 'grab';
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', _handleMouseUp);
+            };
+
+            handle.addEventListener('mousedown', handleMouseDown);
+        }
+
+        centerWindow() {
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+            const windowWidth = 600;
+            const windowHeight = 400;
+
+            const x = (viewportWidth - windowWidth) / 2;
+            const y = (viewportHeight - windowHeight) / 2;
+
+            this.consoleWindow.style.left = `${x}px`;
+            this.consoleWindow.style.top = `${y}px`;
+        }
+
+        subscribe() {
+            if (socket && socket.readyState === WebSocket.OPEN && userToken && !this.isSubscribed) {
+                socket.send(JSON.stringify({
+                    type: 'admin_console_subscribe',
+                    token: userToken
+                }));
+                this.isSubscribed = true;
+            }
+        }
+
+        unsubscribe() {
+            if (socket && socket.readyState === WebSocket.OPEN && this.isSubscribed) {
+                socket.send(JSON.stringify({
+                    type: 'admin_console_unsubscribe'
+                }));
+                this.isSubscribed = false;
+            }
+        }
+
+        addLogEntry(logData) {
+            if (!this.consoleLog) return;
+
+            const entry = document.createElement('div');
+            entry.className = 'console-entry';
+
+            const timestamp = new Date(logData.timestamp).toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+
+            entry.innerHTML = `
+                <span class="console-timestamp">${timestamp}</span>
+                <span class="console-level ${logData.level}">${logData.level}</span>
+                <span class="console-message">${this.escapeHtml(logData.message)}</span>
+                ${logData.data ? `<span class="console-data">${this.escapeHtml(JSON.stringify(logData.data))}</span>` : ''}
+            `;
+
+            this.consoleLog.appendChild(entry);
+
+            // Limit number of entries
+            while (this.consoleLog.children.length > this.maxEntries) {
+                this.consoleLog.removeChild(this.consoleLog.firstChild);
+            }
+
+            // Auto-scroll to bottom
+            this.consoleLog.scrollTop = this.consoleLog.scrollHeight;
+        }
+
+        clear() {
+            if (this.consoleLog) {
+                this.consoleLog.innerHTML = '';
+                this.addLogEntry({
+                    level: 'info',
+                    message: 'Console cleared',
+                    timestamp: Date.now()
+                });
+            }
+        }
+
+        escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Called when WebSocket reconnects
+        onReconnect() {
+            if (this.isVisible && this.isSubscribed) {
+                this.isSubscribed = false;
+                this.subscribe();
+            }
+        }
+    }
+
+    window.adminConsole = new AdminConsole();
+
+    // Collapsible Panel functionality
+    function initCollapsiblePanels() {
+        const collapsiblePanels = document.querySelectorAll('.collapsible-panel');
+
+        collapsiblePanels.forEach(panel => {
+            const header = panel.querySelector('.collapsible-header');
+            const toggle = panel.querySelector('.panel-toggle');
+
+            if (header && toggle) {
+                const togglePanel = () => {
+                    panel.classList.toggle('collapsed');
+
+                    // Save state to localStorage
+                    const panelId = panel.dataset.panel;
+                    const isCollapsed = panel.classList.contains('collapsed');
+                    localStorage.setItem(`panel_${panelId}_collapsed`, isCollapsed.toString());
+                };
+
+                header.addEventListener('click', togglePanel);
+                toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    togglePanel();
+                });
+            }
+        });
+
+        // Restore saved panel states (default to expanded if no saved state)
+        collapsiblePanels.forEach(panel => {
+            const panelId = panel.dataset.panel;
+            const savedState = localStorage.getItem(`panel_${panelId}_collapsed`);
+
+            // Default to expanded if no saved state exists
+            if (savedState === 'true') {
+                panel.classList.add('collapsed');
+            } else {
+                panel.classList.remove('collapsed');
+            }
+        });
     }
 
     window.gridTender = new GridTender({

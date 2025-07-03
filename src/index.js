@@ -54,6 +54,27 @@ function observeSession(env, eventData) {
   });
 }
 
+function observeGridCorruption(env, eventData) {
+  env.onEventStore.writeDataPoint({
+    blobs: [
+      "grid_corruption",
+      eventData.corruption_type,
+      eventData.detection_method,
+      eventData.recovery_status,
+      eventData.backup_timestamp || "none",
+      eventData.corruption_reason || "unknown",
+    ],
+    doubles: [
+      eventData.pixels_before_corruption || 0,
+      eventData.pixels_after_recovery || 0,
+      eventData.backup_age_minutes || 0,
+      eventData.detection_time_ms || 0,
+      eventData.recovery_time_ms || 0,
+    ],
+    indexes: ["system"],
+  });
+}
+
 const app = new Hono();
 
 const cors = (c, next) => {
@@ -170,6 +191,7 @@ export class GridDurableObject {
     this.state = state;
     this.env = env;
     this.sessions = new Set();
+    this.adminSessions = new Set();
     this.grid = null;
     this.whitelist = null;
     this.whitelistEnabled = null;
@@ -177,6 +199,10 @@ export class GridDurableObject {
     this.currentAnnouncement = null;
     this.activeUsers = new Map();
     this.recentPlacements = new Map();
+    this.lastBackupTime = 0;
+    this.backupInterval = null;
+    this.pixelChangesSinceBackup = false;
+    this.lastPixelUpdateTime = 0;
   }
 
   async initialize() {
@@ -185,22 +211,118 @@ export class GridDurableObject {
     await this.loadAdminUsers();
     await this.loadCurrentAnnouncement();
 
-    const pixels = await this.state.storage.list({ prefix: "pixel:" });
-    const gridData = Array(500)
-      .fill(0)
-      .map(() => Array(500).fill("#FFFFFF"));
+    try {
+      const pixels = await this.state.storage.list({ prefix: "pixel:" });
+      const gridData = Array(500)
+        .fill(0)
+        .map(() => Array(500).fill("#FFFFFF"));
 
-    for (const [key, color] of pixels) {
-      const [, y, x] = key.split(":");
-      const yInt = parseInt(y, 10);
-      const xInt = parseInt(x, 10);
-      if (yInt >= 0 && yInt < 500 && xInt >= 0 && xInt < 500) {
-        gridData[yInt][xInt] = color;
+      for (const [key, color] of pixels) {
+        const [, y, x] = key.split(":");
+        const yInt = parseInt(y, 10);
+        const xInt = parseInt(x, 10);
+        if (yInt >= 0 && yInt < 500 && xInt >= 0 && xInt < 500) {
+          gridData[yInt][xInt] = color;
+        }
+      }
+
+      // Check for grid corruption and attempt recovery
+      const isCorrupted = await this.checkGridCorruption(gridData, pixels.size);
+      if (isCorrupted) {
+        console.warn(
+          "Grid corruption detected, attempting to restore from backup",
+        );
+        const restored = await this.attemptGridRestore();
+        if (restored) {
+          this.grid = restored;
+          // Count actual pixels in restored grid
+          let restoredPixelCount = 0;
+          for (let y = 0; y < 500; y++) {
+            for (let x = 0; x < 500; x++) {
+              if (this.grid[y][x] !== "#FFFFFF") {
+                restoredPixelCount++;
+              }
+            }
+          }
+          console.log(
+            `Grid restored from backup successfully with ${restoredPixelCount} custom pixels`,
+          );
+
+          // Log corruption recovery event
+          await this.logCorruptionEvent({
+            corruptionType: "empty_grid_with_backups",
+            pixelsBefore: pixels.size,
+            pixelsAfter: restoredPixelCount,
+            recoveryStatus: "success",
+            detectionTime: Date.now(),
+          });
+        } else {
+          this.grid = gridData;
+          console.error(
+            "Grid restoration failed, using potentially corrupted data",
+          );
+          console.log("Grid loaded with", pixels.size, "custom pixels");
+
+          // Log failed corruption recovery event
+          await this.logCorruptionEvent({
+            corruptionType: "empty_grid_with_backups",
+            pixelsBefore: pixels.size,
+            pixelsAfter: pixels.size,
+            recoveryStatus: "failed",
+            detectionTime: Date.now(),
+          });
+        }
+      } else {
+        this.grid = gridData;
+        console.log("Grid loaded with", pixels.size, "custom pixels");
+        this.logToConsole("info", `Grid loaded with ${pixels.size} custom pixels`);
+      }
+
+      // Start backup interval if there are active users
+      this.startBackupInterval();
+    } catch (error) {
+      console.error("Grid initialization error:", error);
+      // Attempt to restore from backup on initialization failure
+      const restored = await this.attemptGridRestore();
+      if (restored) {
+        this.grid = restored;
+        // Count restored pixels
+        let restoredPixelCount = 0;
+        for (let y = 0; y < 500; y++) {
+          for (let x = 0; x < 500; x++) {
+            if (this.grid[y][x] !== "#FFFFFF") {
+              restoredPixelCount++;
+            }
+          }
+        }
+        console.log("Grid restored from backup after initialization failure");
+
+        // Log initialization failure recovery event
+        await this.logCorruptionEvent({
+          corruptionType: "initialization_failure",
+          pixelsBefore: 0,
+          pixelsAfter: restoredPixelCount,
+          recoveryStatus: "success",
+          detectionTime: Date.now(),
+          error: error.message,
+        });
+      } else {
+        this.grid = Array(500)
+          .fill(0)
+          .map(() => Array(500).fill("#FFFFFF"));
+        console.error("Grid initialization failed, using empty grid");
+
+        // Log failed initialization recovery event
+        await this.logCorruptionEvent({
+          corruptionType: "initialization_failure",
+          pixelsBefore: 0,
+          pixelsAfter: 0,
+          recoveryStatus: "failed",
+          detectionTime: Date.now(),
+          error: error.message,
+        });
       }
     }
-
-    this.grid = gridData;
-    console.log("Grid loaded with", pixels.size, "custom pixels");
   }
 
   async loadAdminUsers() {
@@ -301,6 +423,7 @@ export class GridDurableObject {
       await this.state.storage.put("whitelist", whitelistData);
 
       console.log(`Added user ${userId} (${username}) to whitelist`);
+      this.logToConsole("info", `User added to whitelist: ${username} (${userId})`);
       return { success: true, message: "User added to whitelist" };
     } else {
       if (username) {
@@ -329,6 +452,7 @@ export class GridDurableObject {
       await this.state.storage.put("whitelist", whitelistData);
 
       console.log(`Removed user ${userId} from whitelist`);
+      this.logToConsole("info", `User removed from whitelist: ${userId}`);
       return { success: true, message: "User removed from whitelist" };
     } else {
       return { success: false, message: "User not found in whitelist" };
@@ -342,6 +466,7 @@ export class GridDurableObject {
     await this.saveWhitelist();
 
     console.log(`Whitelist ${this.whitelistEnabled ? "enabled" : "disabled"}`);
+    this.logToConsole("info", `Whitelist ${this.whitelistEnabled ? "enabled" : "disabled"}`);
     return { enabled: this.whitelistEnabled };
   }
 
@@ -769,6 +894,8 @@ export class GridDurableObject {
           timestamp: Date.now(),
         });
 
+        this.logToConsole("info", `Admin broadcast sent by ${user.username}: ${message.trim()}`);
+
         return new Response(
           JSON.stringify({
             success: true,
@@ -1020,6 +1147,14 @@ export class GridDurableObject {
         this.grid[y][x] = color;
         await this.state.storage.put(`pixel:${y}:${x}`, color);
 
+        // Track pixel changes for backup
+        this.pixelChangesSinceBackup = true;
+        this.lastPixelUpdateTime = Date.now();
+        await this.state.storage.put(
+          "last_pixel_update_time",
+          this.lastPixelUpdateTime,
+        );
+
         this.broadcast({
           type: "pixelUpdate",
           x,
@@ -1027,6 +1162,11 @@ export class GridDurableObject {
           color,
           user: { id: user.id, username: user.username },
         });
+
+        this.logToConsole("info", `Pixel placed at (${x}, ${y}) by ${user.username}`, {
+          x, y, color, user: user.username
+        });
+
         await this.sendDiscordWebhook(x, y, color, user);
 
         this.observeUserActivity(
@@ -1196,6 +1336,7 @@ export class GridDurableObject {
         console.log(
           `Grid cleared by admin user: ${user.username} (${user.id})`,
         );
+        this.logToConsole("warn", `Grid cleared by admin: ${user.username}`);
 
         this.broadcast({ type: "grid-refreshed" });
 
@@ -1226,11 +1367,47 @@ export class GridDurableObject {
   async handleWebSocket(webSocket) {
     webSocket.accept();
     this.sessions.add(webSocket);
+
+    // Start backup interval when first user connects
+    if (this.sessions.size === 1) {
+      this.startBackupInterval();
+    }
+
+    webSocket.addEventListener("message", async (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "admin_console_subscribe") {
+          const token = data.token;
+          if (token) {
+            const user = await validateDiscordToken(token, this.env);
+            if (user && this.isAdmin(user.id)) {
+              this.adminSessions.add(webSocket);
+              this.logToConsole("info", `Admin console connected: ${user.username}`);
+            }
+          }
+        } else if (data.type === "admin_console_unsubscribe") {
+          this.adminSessions.delete(webSocket);
+        }
+      } catch {
+        // Ignore malformed messages
+      }
+    });
+
     webSocket.addEventListener("close", () => {
       this.sessions.delete(webSocket);
+      this.adminSessions.delete(webSocket);
+      // Stop backup interval when no users are connected
+      if (this.sessions.size === 0) {
+        this.stopBackupInterval();
+      }
     });
     webSocket.addEventListener("error", () => {
       this.sessions.delete(webSocket);
+      this.adminSessions.delete(webSocket);
+      // Stop backup interval when no users are connected
+      if (this.sessions.size === 0) {
+        this.stopBackupInterval();
+      }
     });
   }
 
@@ -1241,6 +1418,25 @@ export class GridDurableObject {
         session.send(messageStr);
       } catch {
         this.sessions.delete(session);
+      }
+    }
+  }
+
+  logToConsole(level, message, data = null) {
+    const logMessage = {
+      type: "console_log",
+      level: level,
+      message: message,
+      data: data,
+      timestamp: Date.now()
+    };
+
+    const messageStr = JSON.stringify(logMessage);
+    for (const session of this.adminSessions) {
+      try {
+        session.send(messageStr);
+      } catch {
+        this.adminSessions.delete(session);
       }
     }
   }
@@ -1271,6 +1467,373 @@ export class GridDurableObject {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(webhookPayload),
     });
+  }
+
+  // Generate SHA-256 hash of grid data
+  async generateGridHash(gridData) {
+    const gridString = JSON.stringify(gridData);
+    const encoder = new TextEncoder();
+    const data = encoder.encode(gridString);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  // Check if grid is corrupted (empty or matches empty grid hash)
+  async checkGridCorruption(gridData, pixelCount) {
+    // If no pixels are stored, check if this is expected
+    if (pixelCount === 0) {
+      // Get the hash of an empty grid
+      const emptyGrid = Array(500)
+        .fill(0)
+        .map(() => Array(500).fill("#FFFFFF"));
+      const emptyGridHash = await this.generateGridHash(emptyGrid);
+      const currentGridHash = await this.generateGridHash(gridData);
+
+      // If current grid matches empty grid but we have backups, it might be corrupted
+      if (currentGridHash === emptyGridHash) {
+        const lastBackup = await this.env.PALETTE_KV.get("grid_backup_latest", {
+          type: "json",
+        });
+        if (lastBackup && lastBackup.metadata.pixelCount > 0) {
+          console.warn(
+            "Grid appears to be corrupted: empty grid with existing backups",
+          );
+          return true;
+        }
+      }
+    }
+
+    // Check if the loaded grid differs from the last backup hash
+    const lastBackup = await this.env.PALETTE_KV.get("grid_backup_latest", {
+      type: "json",
+    });
+    if (lastBackup) {
+      const currentGridHash = await this.generateGridHash(gridData);
+      const lastUpdateTime =
+        (await this.state.storage.get("last_pixel_update_time")) || 0;
+
+      // If hash differs and backup is newer, grid might be corrupted
+      if (
+        currentGridHash !== lastBackup.hash &&
+        lastBackup.timestamp > lastUpdateTime
+      ) {
+        console.warn(
+          "Grid hash mismatch with backup, potential corruption detected",
+        );
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // Attempt to restore grid from the latest backup
+  async attemptGridRestore() {
+    try {
+      const lastBackup = await this.env.PALETTE_KV.get("grid_backup_latest", {
+        type: "json",
+      });
+      if (!lastBackup) {
+        console.log("No backup available for restoration");
+        return null;
+      }
+
+      // Verify backup integrity
+      const backupHash = await this.generateGridHash(lastBackup.data);
+      if (backupHash !== lastBackup.hash) {
+        console.error("Backup integrity check failed, backup is corrupted");
+        return null;
+      }
+
+      console.log(
+        `Restoring grid from backup: ${lastBackup.metadata.createdAt}`,
+      );
+      return lastBackup.data;
+    } catch (error) {
+      console.error("Grid restore attempt failed:", error);
+      return null;
+    }
+  }
+
+  // Create a backup of the current grid
+  async createGridBackup() {
+    if (!this.grid || !this.pixelChangesSinceBackup) {
+      return;
+    }
+
+    try {
+      const timestamp = Date.now();
+      const gridHash = await this.generateGridHash(this.grid);
+
+      // Count non-white pixels
+      let pixelCount = 0;
+      for (let y = 0; y < 500; y++) {
+        for (let x = 0; x < 500; x++) {
+          if (this.grid[y][x] !== "#FFFFFF") {
+            pixelCount++;
+          }
+        }
+      }
+
+      const backup = {
+        data: this.grid,
+        hash: gridHash,
+        timestamp: timestamp,
+        metadata: {
+          pixelCount: pixelCount,
+          createdAt: new Date(timestamp).toISOString(),
+          createdBy: "auto-backup",
+        },
+      };
+
+      // Store the backup in KV (more resilient than Durable Object storage)
+      await this.env.PALETTE_KV.put(
+        "grid_backup_latest",
+        JSON.stringify(backup),
+      );
+
+      // Also store timestamped backup (keep last 10)
+      await this.env.PALETTE_KV.put(
+        `grid_backup_${timestamp}`,
+        JSON.stringify(backup),
+      );
+
+      // Update backup index for cleanup tracking
+      await this.updateBackupIndex(timestamp);
+
+      // Clean up old backups
+      await this.cleanupOldBackups();
+
+      this.lastBackupTime = timestamp;
+      this.pixelChangesSinceBackup = false;
+
+      console.log(
+        `Grid backup created: ${pixelCount} pixels, hash: ${gridHash.substring(0, 16)}...`,
+      );
+    } catch (error) {
+      console.error("Grid backup creation failed:", error);
+    }
+  }
+
+  // Update backup index with new timestamp
+  async updateBackupIndex(timestamp) {
+    try {
+      const backupIndex =
+        (await this.env.PALETTE_KV.get("grid_backup_index", {
+          type: "json",
+        })) || [];
+
+      // Add timestamp to index if not already there
+      if (!backupIndex.includes(timestamp)) {
+        backupIndex.push(timestamp);
+        await this.env.PALETTE_KV.put(
+          "grid_backup_index",
+          JSON.stringify(backupIndex),
+        );
+      }
+    } catch (error) {
+      console.error("Backup index update failed:", error);
+    }
+  }
+
+  // Clean up old backups (keep last 10)
+  async cleanupOldBackups() {
+    try {
+      // KV doesn't have a list operation, so we'll track backup keys in a separate index
+      const backupIndex =
+        (await this.env.PALETTE_KV.get("grid_backup_index", {
+          type: "json",
+        })) || [];
+
+      // Sort by timestamp descending and keep only the 10 most recent
+      backupIndex.sort((a, b) => b - a);
+
+      if (backupIndex.length > 10) {
+        const toDelete = backupIndex.slice(10);
+
+        // Delete old backups from KV
+        const deletePromises = toDelete.map((timestamp) =>
+          this.env.PALETTE_KV.delete(`grid_backup_${timestamp}`),
+        );
+        await Promise.all(deletePromises);
+
+        // Update the index
+        const updatedIndex = backupIndex.slice(0, 10);
+        await this.env.PALETTE_KV.put(
+          "grid_backup_index",
+          JSON.stringify(updatedIndex),
+        );
+
+        console.log(`Cleaned up ${toDelete.length} old backups`);
+      }
+    } catch (error) {
+      console.error("Backup cleanup failed:", error);
+    }
+  }
+
+  // Start backup interval when users are active
+  startBackupInterval() {
+    if (this.backupInterval) {
+      return;
+    }
+
+    this.backupInterval = setInterval(async () => {
+      // Only backup if there are active users and changes were made
+      if (this.sessions.size > 0 && this.pixelChangesSinceBackup) {
+        await this.createGridBackup();
+      }
+    }, 60000); // Every minute
+
+    console.log("Backup interval started");
+  }
+
+  // Stop backup interval
+  stopBackupInterval() {
+    if (this.backupInterval) {
+      clearInterval(this.backupInterval);
+      this.backupInterval = null;
+      console.log("Backup interval stopped");
+    }
+  }
+
+  // Log grid corruption events to analytics and Discord webhook
+  async logCorruptionEvent(eventData) {
+    try {
+      const timestamp = eventData.detectionTime || Date.now();
+      const backupInfo = await this.getLastBackupInfo();
+
+      // Calculate backup age if available
+      let backupAgeMinutes = 0;
+      if (backupInfo?.timestamp) {
+        backupAgeMinutes = Math.round(
+          (timestamp - backupInfo.timestamp) / (1000 * 60),
+        );
+      }
+
+      // Log to analytics database
+      observeGridCorruption(this.env, {
+        corruption_type: eventData.corruptionType,
+        detection_method: "auto_detection",
+        recovery_status: eventData.recoveryStatus,
+        backup_timestamp: backupInfo?.metadata?.createdAt || "none",
+        corruption_reason: eventData.error || "unknown",
+        pixels_before_corruption: eventData.pixelsBefore || 0,
+        pixels_after_recovery: eventData.pixelsAfter || 0,
+        backup_age_minutes: backupAgeMinutes,
+        detection_time_ms: timestamp,
+        recovery_time_ms: Date.now() - timestamp,
+      });
+
+      // Send Discord webhook notification
+      await this.sendCorruptionWebhook(eventData, backupInfo, backupAgeMinutes);
+    } catch (error) {
+      console.error("Failed to log corruption event:", error);
+    }
+  }
+
+  // Get information about the last backup
+  async getLastBackupInfo() {
+    try {
+      return await this.env.PALETTE_KV.get("grid_backup_latest", {
+        type: "json",
+      });
+    } catch (error) {
+      console.error("Failed to get last backup info:", error);
+      return null;
+    }
+  }
+
+  // Send Discord webhook for grid corruption events
+  async sendCorruptionWebhook(eventData, backupInfo, backupAgeMinutes) {
+    if (!this.env.DISCORD_WEBHOOK_URL) return;
+
+    const isSuccess = eventData.recoveryStatus === "success";
+    const embedColor = isSuccess ? 0x10b981 : 0xef4444; // Green for success, red for failure
+    const statusEmoji = isSuccess ? "✅" : "❌";
+
+    const fields = [
+      {
+        name: "Corruption Type",
+        value: eventData.corruptionType.replace(/_/g, " ").toUpperCase(),
+        inline: true,
+      },
+      {
+        name: "Recovery Status",
+        value: `${statusEmoji} ${eventData.recoveryStatus.toUpperCase()}`,
+        inline: true,
+      },
+      {
+        name: "Detection Time",
+        value: `<t:${Math.floor((eventData.detectionTime || Date.now()) / 1000)}:F>`,
+        inline: true,
+      },
+    ];
+
+    if (eventData.pixelsBefore !== undefined) {
+      fields.push({
+        name: "Pixels Before",
+        value: eventData.pixelsBefore.toString(),
+        inline: true,
+      });
+    }
+
+    if (eventData.pixelsAfter !== undefined) {
+      fields.push({
+        name: "Pixels After Recovery",
+        value: eventData.pixelsAfter.toString(),
+        inline: true,
+      });
+    }
+
+    if (backupInfo) {
+      fields.push({
+        name: "Backup Used",
+        value: `${backupAgeMinutes}min old (${backupInfo.metadata?.pixelCount || 0} pixels)`,
+        inline: true,
+      });
+    }
+
+    if (eventData.error) {
+      fields.push({
+        name: "Error Details",
+        value: `\`\`\`${eventData.error.substring(0, 200)}\`\`\``,
+        inline: false,
+      });
+    }
+
+    const title = isSuccess
+      ? "🛡️ Grid Corruption Detected & Recovered"
+      : "⚠️ Grid Corruption Detected - Recovery Failed";
+
+    const description = isSuccess
+      ? "The grid corruption detection system automatically restored the grid from a recent backup."
+      : "Grid corruption was detected but automatic recovery failed. Manual intervention may be required.";
+
+    const webhookPayload = {
+      embeds: [
+        {
+          title: title,
+          description: description,
+          color: embedColor,
+          fields: fields,
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Neuro.Place Grid Protection System",
+          },
+        },
+      ],
+    };
+
+    try {
+      await fetch(this.env.DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookPayload),
+      });
+    } catch (error) {
+      console.error("Failed to send corruption webhook:", error);
+    }
   }
 }
 
