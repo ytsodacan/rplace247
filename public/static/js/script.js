@@ -258,20 +258,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 headers.Authorization = `Bearer ${userToken}`;
             }
 
+            const requestBody = {
+                x,
+                y,
+                color,
+                sessionId,
+                inputMethod,
+                timeToFirstPlacement,
+                sessionDuration,
+                placementCount,
+                user: userData,
+            };
+            const jsonBody = JSON.stringify(requestBody);
+            console.log("Sending pixel request:", requestBody);
+            console.log("JSON body length:", jsonBody.length);
+            console.log("JSON body:", jsonBody);
+
             const response = await fetch(`${BACKEND_URL}/pixel`, {
                 method: "POST",
                 headers,
-                body: JSON.stringify({
-                    x,
-                    y,
-                    color,
-                    sessionId,
-                    inputMethod,
-                    timeToFirstPlacement,
-                    sessionDuration,
-                    placementCount,
-                    user: userData,
-                }),
+                body: jsonBody,
             });
 
             if (!response.ok) {

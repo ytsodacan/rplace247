@@ -20,11 +20,19 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Debug - List files and check package.json
+        run: |
+          pwd
+          ls -la
+          cat package.json
+
       - name: Install dependencies
         run: bun install
+        working-directory: .
 
       - name: Deploy to Cloudflare Worker
         run: bun wrangler deploy
+        working-directory: .
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 

@@ -28,6 +28,18 @@ class GridTender {
 	}
 
 	/**
+	 * Detect device type from user agent
+	 */
+	detectDevice() {
+		const userAgent = navigator.userAgent;
+		if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent)) {
+			if (/iPad|tablet/i.test(userAgent)) return 'tablet';
+			return 'mobile';
+		}
+		return 'desktop';
+	}
+
+	/**
 	 * Initialize GridTender
 	 */
 	async init() {
@@ -243,23 +255,59 @@ class GridTender {
 		}
 
 		try {
+			// Get session data from the main script if available
+			const sessionId = window.sessionId || `session_${Math.random().toString(36).substring(2, 11)}${Date.now().toString(36)}`;
+			const sessionStartTime = window.sessionStartTime || Date.now();
+			const placementCount = window.placementCount || 1;
+			const currentTime = Date.now();
+
+			const headers = {
+				Authorization: `Bearer ${this.userToken}`,
+				"Content-Type": "application/json",
+				"X-Input-Method": "gridtender",
+				"X-Session-Id": sessionId,
+				"X-Timestamp": sessionStartTime.toString(),
+				"X-Session-Duration": (currentTime - sessionStartTime).toString(),
+				"X-Placement-Count": placementCount.toString(),
+				"X-Time-To-First": "0",
+				"X-Device-Type": this.detectDevice()
+			};
+
+			const requestBody = {
+				x,
+				y,
+				color,
+				sessionId,
+				inputMethod: "gridtender",
+				timeToFirstPlacement: 0,
+				sessionDuration: currentTime - sessionStartTime,
+				placementCount: placementCount,
+				user: this.userData,
+			};
+
+			this.log("GridTender sending pixel request:", requestBody);
+
 			const response = await fetch(`${this.backendUrl}/pixel`, {
 				method: "POST",
-				headers: {
-					Authorization: `Bearer ${this.userToken}`,
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({ x, y, color }),
+				headers,
+				body: JSON.stringify(requestBody),
 			});
 
-			const result = await response.json();
-
 			if (response.ok) {
+				const result = await response.json();
 				this.showMessage("Pixel placed successfully!", "success");
 				return { success: true, message: result.message };
 			} else {
-				this.showMessage(`Failed to place pixel: ${result.message}`, "error");
-				return { success: false, message: result.message };
+				let errorMessage = response.statusText;
+				try {
+					const result = await response.json();
+					errorMessage = result.message || response.statusText;
+				} catch {
+					// Response is not JSON, use statusText
+					errorMessage = `Server error: ${response.statusText}`;
+				}
+				this.showMessage(`Failed to place pixel: ${errorMessage}`, "error");
+				return { success: false, message: errorMessage };
 			}
 		} catch (error) {
 			this.log("Error placing pixel:", error);

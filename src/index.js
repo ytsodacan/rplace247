@@ -1115,8 +1115,12 @@ export class GridDurableObject {
           });
         }
 
-        const requestData = await request.json();
-        console.log("Received pixel request data:", requestData);
+        const requestText = await request.text();
+        console.log("Raw request body:", requestText);
+        console.log("Request body length:", requestText.length);
+
+        const requestData = JSON.parse(requestText);
+        console.log("Parsed request data:", requestData);
         const { x, y, color } = requestData;
 
         if (
@@ -1160,7 +1164,12 @@ export class GridDurableObject {
           x, y, color, user: user.username
         });
 
-        await this.sendDiscordWebhook(x, y, color, user);
+        try {
+          await this.sendDiscordWebhook(x, y, color, user);
+        } catch (webhookError) {
+          console.error("Discord webhook failed:", webhookError);
+          // Don't let webhook failure break pixel placement
+        }
 
         this.observeUserActivity(
           user.id,
@@ -1486,37 +1495,68 @@ export class GridDurableObject {
   }
 
   async sendDiscordWebhook(x, y, color, user = null) {
-    if (!this.env.DISCORD_WEBHOOK_URL) return;
-    const fields = [
-      { name: "Position", value: `(${x}, ${y})`, inline: true },
-      { name: "Color", value: color.toUpperCase(), inline: true },
-    ];
-    if (user) {
-      fields.push({ name: "User", value: `${user.username}`, inline: true });
+    if (!this.env.DISCORD_WEBHOOK_URL) {
+      console.log("No Discord webhook URL configured, skipping webhook");
+      return;
     }
-    const webhookPayload = {
-      embeds: [
-        {
-          title: "🎨 New Pixel Placed!",
-          color: Number.parseInt(color.replace("#", ""), 16),
-          fields,
-          thumbnail: {
-            url: `https://singlecolorimage.com/get/${color.replace("#", "")}/100x100`,
+
+    // Validate webhook URL
+    try {
+      new URL(this.env.DISCORD_WEBHOOK_URL);
+    } catch (urlError) {
+      console.error("Invalid DISCORD_WEBHOOK_URL:", this.env.DISCORD_WEBHOOK_URL);
+      console.error("URL validation error:", urlError);
+      return;
+    }
+
+    try {
+      console.log("Discord webhook URL:", this.env.DISCORD_WEBHOOK_URL);
+      const fields = [
+        { name: "Position", value: `(${x}, ${y})`, inline: true },
+        { name: "Color", value: color.toUpperCase(), inline: true },
+      ];
+      if (user) {
+        fields.push({ name: "User", value: `${user.username}`, inline: true });
+      }
+      const webhookPayload = {
+        embeds: [
+          {
+            title: "🎨 New Pixel Placed!",
+            color: Number.parseInt(color.replace("#", ""), 16),
+            fields,
+            thumbnail: {
+              url: `https://singlecolorimage.com/get/${color.replace("#", "")}/100x100`,
+            },
           },
-        },
-      ],
-    };
-    await fetch(this.env.DISCORD_WEBHOOK_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(webhookPayload),
-    });
+        ],
+      };
+
+      await fetch(this.env.DISCORD_WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookPayload),
+      });
+
+      console.log("Discord webhook sent successfully");
+    } catch (error) {
+      console.error("Error in sendDiscordWebhook:", error);
+      throw error; // Re-throw to be caught by the outer try-catch
+    }
   }
 
   async sendDeploymentWebhook(deploymentInfo) {
     const webhookUrl = this.env.DISCORD_DEPLOYMENT_WEBHOOK_URL || this.env.DISCORD_WEBHOOK_URL;
     if (!webhookUrl) {
       console.error("No deployment webhook URL configured");
+      return;
+    }
+
+    // Validate webhook URL
+    try {
+      new URL(webhookUrl);
+    } catch (urlError) {
+      console.error("Invalid deployment webhook URL:", webhookUrl);
+      console.error("URL validation error:", urlError);
       return;
     }
 
@@ -1807,6 +1847,15 @@ export class GridDurableObject {
 
   async sendCorruptionWebhook(eventData, backupInfo, backupAgeMinutes) {
     if (!this.env.DISCORD_WEBHOOK_URL) return;
+
+    // Validate webhook URL
+    try {
+      new URL(this.env.DISCORD_WEBHOOK_URL);
+    } catch (urlError) {
+      console.error("Invalid DISCORD_WEBHOOK_URL:", this.env.DISCORD_WEBHOOK_URL);
+      console.error("URL validation error:", urlError);
+      return;
+    }
 
     const isSuccess = eventData.recoveryStatus === "success";
     const embedColor = isSuccess ? 0x10b981 : 0xef4444;
