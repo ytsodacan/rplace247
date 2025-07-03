@@ -9,7 +9,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, 'push and deploy to prod')
+    if: contains(github.event.head_commit.message, 'push and deploy to prod' || contains(github.event.head_commit.message, 'deploy to prod') || contains(github.event.head_commit.message, 'deploy to production') || contains(github.event.head_commit.message, 'push to prod') || contains(github.event.head_commit.message, 'push to production') || contains(github.event.head_commit.message, 'prod deploy') || contains(github.event.head_commit.message, 'production deploy'))
 
     steps:
       - name: Checkout repository
