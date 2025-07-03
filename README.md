@@ -9,6 +9,8 @@ A collaborative pixel placement app for the Neurosama community
 ### 7/2/25
 
 - Added robots.txt
+- Added sitemap.txt
+- Start of implementing user opt-out for analytics and active user tracking
 - Added privacy policy
 - Added real time active user display
 - Added analytics for pixel placements and user sessions with no PII being persisted

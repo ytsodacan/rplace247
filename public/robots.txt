@@ -27,3 +27,5 @@ Disallow: /whitelist/
 Disallow: /announcement
 
 Crawl-delay: 1
+
+sitemap: https://neurosama.place/sitemap.txt

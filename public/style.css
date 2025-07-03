@@ -5,6 +5,14 @@
 	font-style: normal;
 	font-display: swap;
 }
+button {
+	cursor: pointer;
+}
+#adminToggleBtn,
+#openSettingsBtn,
+#privacyStatementBtn {
+	cursor: pointer;
+}
 :root {
 	--bg-primary: #fafafa;
 	--bg-secondary: #ffffff;
