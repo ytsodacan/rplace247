@@ -167,6 +167,7 @@ app.all(/ws.*/, (c) => c.redirect("/ws", 301));
   "/admin/announcement",
   "/admin/grid/restore",
   "/admin/grid/clear",
+  "/admin/deployment/webhook",
   "/announcement",
   "/api/updates",
   "/api/active-users",
@@ -1351,6 +1352,60 @@ export class GridDurableObject {
       }
     }
 
+    if (url.pathname === "/admin/deployment/webhook" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders },
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders },
+        );
+      }
+
+      try {
+        const deploymentInfo = await request.json();
+
+        const webhookData = {
+          environment: deploymentInfo.environment || "production",
+          workerName: deploymentInfo.workerName || "place-worker",
+          version: deploymentInfo.version,
+          deployedBy: user.username,
+          ...deploymentInfo
+        };
+
+        await this.sendDeploymentWebhook(webhookData);
+
+        console.log(`Deployment webhook sent by ${user.username}`);
+        this.logToConsole("info", `Deployment webhook sent by ${user.username}`, webhookData);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "Deployment webhook sent successfully",
+            deploymentInfo: webhookData,
+            timestamp: new Date().toISOString(),
+          }),
+          { headers: corsHeaders },
+        );
+      } catch (error) {
+        console.error("Deployment webhook error:", error);
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: "Error sending deployment webhook.",
+          }),
+          { status: 500, headers: corsHeaders },
+        );
+      }
+    }
+
     return new Response("Not Found", { status: 404 });
   }
 
@@ -1453,6 +1508,53 @@ export class GridDurableObject {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(webhookPayload),
     });
+  }
+
+  async sendDeploymentWebhook(deploymentInfo) {
+    const webhookUrl = this.env.DISCORD_DEPLOYMENT_WEBHOOK_URL || this.env.DISCORD_WEBHOOK_URL;
+    if (!webhookUrl) {
+      console.error("No deployment webhook URL configured");
+      return;
+    }
+
+    const fields = [
+      { name: "Environment", value: deploymentInfo.environment || "production", inline: true },
+      { name: "Deployed At", value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+      { name: "Worker Name", value: deploymentInfo.workerName || "place-worker", inline: true },
+    ];
+
+    if (deploymentInfo.version) {
+      fields.push({ name: "Version", value: deploymentInfo.version, inline: true });
+    }
+
+    if (deploymentInfo.deployedBy) {
+      fields.push({ name: "Deployed By", value: deploymentInfo.deployedBy, inline: true });
+    }
+
+    const webhookPayload = {
+      embeds: [
+        {
+          title: "🚀 Worker Deployed Successfully!",
+          description: "A new build has been deployed to the place-worker instance.",
+          color: 0x00ff00,
+          fields,
+          timestamp: new Date().toISOString(),
+          footer: {
+            text: "Neuro.Place Deployment System",
+          },
+        },
+      ],
+    };
+
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(webhookPayload),
+      });
+    } catch (error) {
+      console.error("Failed to send deployment webhook:", error);
+    }
   }
 
   async generateGridHash(gridData) {

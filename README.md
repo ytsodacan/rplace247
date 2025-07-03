@@ -4,6 +4,8 @@
 
 A collaborative pixel placement app for the Neurosama community
 
+> **📋 Deployment Guide**: See [DEPLOYMENT.md](./DEPLOYMENT.md) for Discord webhook setup and deployment instructions.
+
 ## Changelog
 
 ### 7/3/25

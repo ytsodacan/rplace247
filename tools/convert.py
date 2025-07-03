@@ -1,11 +1,22 @@
-from PIL import Image
+from __future__ import annotations
+from typing import TYPE_CHECKING, Tuple, List, Dict, Any, Optional
 import json
 import datetime
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
-def rgb_to_hex(rgb):
+if TYPE_CHECKING:
+    from PIL.Image import Image as ImageType
+else:
+    try:
+        from PIL import Image
+        ImageType = Any
+    except ImportError:
+        Image = None
+        ImageType = Any
+
+def rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
     """
     Converts an RGB tuple to a hexadecimal color string.
 
@@ -18,7 +29,7 @@ def rgb_to_hex(rgb):
     r, g, b = max(0, min(255, int(rgb[0]))), max(0, min(255, int(rgb[1]))), max(0, min(255, int(rgb[2])))
     return f"#{r:02X}{g:02X}{b:02X}"
 
-def image_to_grid_json(image_path, output_json_path, target_width=500, target_height=500):
+def image_to_grid_json(image_path: str, output_json_path: str, target_width: int = 500, target_height: int = 500) -> None:
     """
     Converts a 500x500 image into a grid of hexadecimal color codes and saves it as a JSON file.
 
@@ -42,7 +53,7 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
         target_height (int): The desired height of the grid. Default is 500.
     """
     try:
-        img = Image.open(image_path)
+        img: ImageType = Image.open(image_path)
 
         if img.width != target_width or img.height != target_height:
             print(f"Resizing image from {img.width}x{img.height} to {target_width}x{target_height}...")
@@ -52,15 +63,15 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
 
         pixels = img.load()
 
-        grid_data = []
+        grid_data: List[List[str]] = []
         for y in range(img.height):
-            row = []
+            row: List[str] = []
             for x in range(img.width):
-                rgb_color = pixels[x, y]
+                rgb_color: Tuple[int, int, int] = pixels[x, y]
                 row.append(rgb_to_hex(rgb_color))
             grid_data.append(row)
 
-        json_output = {
+        json_output: Dict[str, Any] = {
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='milliseconds'),
             "version": "1.0",
             "gridWidth": target_width,
@@ -82,10 +93,18 @@ def image_to_grid_json(image_path, output_json_path, target_width=500, target_he
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
+    if Image is None:
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Error", "Pillow library not found. Please install it using: pip install Pillow")
+        print("Pillow library not found. Please install it using: pip install Pillow")
+        root.destroy()
+        exit(1)
+
     root = tk.Tk()
     root.withdraw()
 
-    image_path = None
+    image_path: Optional[str] = None
     try:
         image_path = filedialog.askopenfilename(
             title="Select an image file",
@@ -93,15 +112,12 @@ if __name__ == "__main__":
         )
 
         if not image_path:
-            messagebox.showinfo("Cancelled", "No image file selected. Exiting.")
+            messagebox.showinfo(title="Cancelled", message="No image file selected. Exiting.")
             print("No image file selected. Exiting.")
         else:
-            output_json_filename = "output_grid_data.json"
+            output_json_filename: str = "output_grid_data.json"
             image_to_grid_json(image_path, output_json_filename)
 
-    except ImportError:
-        messagebox.showerror("Error", "Pillow library not found. Please install it using: pip install Pillow")
-        print("Pillow library not found. Please install it using: pip install Pillow")
     except Exception as e:
         messagebox.showerror("Error", f"An unexpected error occurred: {e}")
         print(f"An unexpected error occurred: {e}")

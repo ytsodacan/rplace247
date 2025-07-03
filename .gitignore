@@ -16,4 +16,6 @@ bun.lockb
 old.html
 old2.html
 yarn.lock
+analytics-queries.sql# Environment variables
 analytics-queries.sql
+.env.*
