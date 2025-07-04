@@ -472,19 +472,25 @@ export class GridDurableObject {
   }
 
   async canPlacePixel(user) {
-    if (!user) return false;
+    // Allow non-authenticated users
+    if (!user) return true;
 
     await this.initializeWhitelist();
 
+    // Admins can always place pixels
     if (this.isAdmin(user.id)) {
       return true;
     }
 
+    // If blacklist is disabled, everyone can place
     if (!this.whitelistEnabled) {
       return true;
     }
 
-    return await this.isWhitelisted(user.id);
+    // If blacklist is enabled, check if user is blacklisted
+    // (Now "whitelist" acts as blacklist - if user is in the list, they're blocked)
+    const isBlacklisted = await this.isWhitelisted(user.id);
+    return !isBlacklisted;
   }
 
   observeUserActivity(userId, username, deviceType = "unknown") {
@@ -576,14 +582,14 @@ export class GridDurableObject {
 
       await this.initializeWhitelist();
 
-      const whitelisted = await this.isWhitelisted(user.id);
+      const blacklisted = await this.isWhitelisted(user.id);
       const isAdmin = this.isAdmin(user.id);
 
       return new Response(
         JSON.stringify({
-          whitelisted,
+          blacklisted,
           isAdmin,
-          whitelistEnabled: this.whitelistEnabled,
+          blacklistEnabled: this.whitelistEnabled,
           user: { id: user.id, username: user.username },
         }),
         { headers: corsHeaders },
@@ -1089,25 +1095,26 @@ export class GridDurableObject {
     if (url.pathname === "/pixel" && request.method === "POST") {
       try {
         const token = extractBearerToken(request);
-        if (!token) {
-          return new Response(
-            JSON.stringify({ message: "Authentication required" }),
-            { status: 401, headers: corsHeaders },
-          );
-        }
-        const user = await validateDiscordToken(token, this.env);
-        if (!user) {
-          return new Response(
-            JSON.stringify({ message: "Invalid or expired token" }),
-            { status: 401, headers: corsHeaders },
-          );
-        }
+        let user = null;
+        
+        // Try to authenticate if token is provided
+        if (token) {
+          user = await validateDiscordToken(token, this.env);
+          if (!user) {
+            return new Response(
+              JSON.stringify({ message: "Invalid or expired token" }),
+              { status: 401, headers: corsHeaders },
+            );
+          }
 
+        }
+        
+        // Check if user can place pixels (works for both authenticated and non-authenticated)
         const canPlace = await this.canPlacePixel(user);
         if (!canPlace) {
           await this.initializeWhitelist();
           const reason = this.whitelistEnabled
-            ? "You are not whitelisted to place pixels"
+            ? "You are blacklisted from placing pixels"
             : "Access denied";
           return new Response(JSON.stringify({ message: reason }), {
             status: 403,
@@ -1171,23 +1178,27 @@ export class GridDurableObject {
           // Don't let webhook failure break pixel placement
         }
 
-        this.observeUserActivity(
-          user.id,
-          user.username,
-          detectDevice(request.headers.get("user-agent")),
-        );
-        this.observePixels(user.id, user.username);
+        if (user) {
+          this.observeUserActivity(
+            user.id,
+            user.username,
+            detectDevice(request.headers.get("user-agent")),
+          );
+          this.observePixels(user.id, user.username);
+        }
 
         observePixels(this.env, {
           event_type: "pixel_placement",
           device_type: detectDevice(request.headers.get("user-agent")),
           input_method: request.headers.get("x-input-method") || "unknown",
           auth_status: user ? "authenticated" : "anonymous",
-          user_type: this.isAdmin(user.id)
-            ? "admin"
-            : (await this.isWhitelisted(user.id))
-              ? "whitelisted"
-              : "public",
+          user_type: user
+            ? (this.isAdmin(user.id)
+                ? "admin"
+                : (await this.isWhitelisted(user.id))
+                  ? "whitelisted"
+                  : "public")
+            : "anonymous",
           session_id: request.headers.get("x-session-id") || "unknown",
           x_coordinate: x,
           y_coordinate: y,
@@ -1197,7 +1208,7 @@ export class GridDurableObject {
             parseInt(request.headers.get("x-session-duration"), 10) || 0,
           placement_count:
             parseInt(request.headers.get("x-placement-count"), 10) || 1,
-          user_id: user.id,
+          user_id: user ? user.id : "anonymous",
         });
 
         return new Response(JSON.stringify({ message: "Pixel updated" }), {

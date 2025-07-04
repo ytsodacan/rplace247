@@ -232,12 +232,14 @@ class GridTender {
 	 * Check if user can place pixels
 	 */
 	canPlacePixel() {
+		// Allow non-authenticated users to place pixels
 		if (!this.isAuthenticated) {
-			return { allowed: false, reason: "Not authenticated" };
+			return { allowed: true, reason: "Anonymous user allowed" };
 		}
 
-		if (this.whitelistEnabled && !this.isWhitelisted && !this.isAdmin) {
-			return { allowed: false, reason: "Not whitelisted" };
+		// For authenticated users, check if they're blacklisted (if blacklist is enabled)
+		if (this.whitelistEnabled && this.isWhitelisted && !this.isAdmin) {
+			return { allowed: false, reason: "User is blacklisted" };
 		}
 
 		return { allowed: true, reason: "Authorized" };
@@ -262,7 +264,6 @@ class GridTender {
 			const currentTime = Date.now();
 
 			const headers = {
-				Authorization: `Bearer ${this.userToken}`,
 				"Content-Type": "application/json",
 				"X-Input-Method": "gridtender",
 				"X-Session-Id": sessionId,
@@ -272,6 +273,11 @@ class GridTender {
 				"X-Time-To-First": "0",
 				"X-Device-Type": this.detectDevice()
 			};
+
+			// Only add Authorization header if user is authenticated
+			if (this.userToken) {
+				headers.Authorization = `Bearer ${this.userToken}`;
+			}
 
 			const requestBody = {
 				x,

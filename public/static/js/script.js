@@ -478,6 +478,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 if (!document.getElementById("cooldownToggleContainer")) {
+                    // Check if user is admin and default to no cooldown
+                    const adminIds = ["146797401720487936", "405184938045079552", "858231473761157170"];
+                    const isAdmin = adminIds.includes(userData.id);
+                    if (isAdmin) {
+                        enforceCooldown = false;
+                    }
+
                     const label = document.createElement("label");
                     label.id = "cooldownToggleContainer";
                     label.style.marginLeft = "8px";
