@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# This script will exit immediately if any command fails.
 set -e
 # fails if secrets aren't in env
 if [ -z "$PROD_PALETTE_KV_ID" ]; then
