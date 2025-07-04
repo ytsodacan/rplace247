@@ -1164,11 +1164,11 @@ export class GridDurableObject {
           x,
           y,
           color,
-          user: { id: user.id, username: user.username },
+          user: user ? { id: user.id, username: user.username } : null,
         });
 
-        this.logToConsole("info", `Pixel placed at (${x}, ${y}) by ${user.username}`, {
-          x, y, color, user: user.username
+        this.logToConsole("info", `Pixel placed at (${x}, ${y}) by ${user ? user.username : 'anonymous'}`, {
+          x, y, color, user: user ? user.username : 'anonymous'
         });
 
         try {

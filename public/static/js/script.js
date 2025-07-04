@@ -163,6 +163,34 @@ document.addEventListener("DOMContentLoaded", () => {
         return "#000000";
     }
 
+    async function checkBackendHealth() {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+            
+            const response = await fetch(`${BACKEND_URL}/grid`, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!response.ok) {
+                throw new Error(`Backend responded with status: ${response.status}`);
+            }
+            
+            return true;
+        } catch (error) {
+            console.error("Backend health check failed:", error);
+            return false;
+        }
+    }
+
+    function redirectToStatusPage() {
+        console.log("Redirecting to status page due to backend unavailability");
+        window.location.href = '/status.html';
+    }
+
     async function getGrid() {
         try {
             const metaResponse = await fetch(`${BACKEND_URL}/grid`);
@@ -200,8 +228,17 @@ document.addEventListener("DOMContentLoaded", () => {
             return grid;
         } catch (error) {
             console.error("Error fetching grid:", error);
+            
+            // Check if backend is actually down or just temporary issue
+            const isBackendUp = await checkBackendHealth();
+            if (!isBackendUp) {
+                console.log("Backend appears to be down, redirecting to status page");
+                redirectToStatusPage();
+                return null;
+            }
+            
             alert(
-                "Could not connect to backend to get initial grid. Is your backend running?",
+                "Could not load the grid data. The backend may be experiencing temporary issues.",
             );
             return Array(GRID_HEIGHT)
                 .fill(0)
@@ -1305,6 +1342,11 @@ document.addEventListener("DOMContentLoaded", () => {
         liveViewCtx.imageSmoothingEnabled = false;
 
         grid = await getGrid();
+        
+        // If getGrid returns null, it means backend is down and we're redirecting
+        if (grid === null) {
+            return;
+        }
 
         drawFullOffscreenGrid(grid);
 
@@ -1411,11 +1453,21 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log("Frontend initialized!");
     }
 
-    function enableFallbackMode() {
+    async function enableFallbackMode() {
         fallbackMode = true;
         addPixelLogEntry("System", "Fallback Mode (Polling)", "#ffaa00");
         addPixelLogEntry("System", "Websocket is down.", "#ff0000");
         console.log("Enabled fallback polling mode.");
+
+        // Check if backend is completely down
+        const isBackendUp = await checkBackendHealth();
+        if (!isBackendUp) {
+            console.log("Backend appears to be completely down, redirecting to status page");
+            setTimeout(() => {
+                redirectToStatusPage();
+            }, 2000); // Give a small delay to show the fallback message
+            return;
+        }
 
         if (!fallbackPollingInterval) {
             fallbackPollingInterval = setInterval(pollForUpdates, FALLBACK_POLL_INTERVAL);
@@ -1508,6 +1560,13 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             console.error("Error polling for updates:", error);
+            
+            // If polling fails consistently, check if backend is completely down
+            const isBackendUp = await checkBackendHealth();
+            if (!isBackendUp) {
+                console.log("Backend appears to be down during polling, redirecting to status page");
+                redirectToStatusPage();
+            }
         }
     }
 
