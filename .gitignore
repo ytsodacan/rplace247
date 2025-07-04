@@ -8,3 +8,4 @@ wrangler/
 .wrangler/
 analytics-queries.sql
 .env.*
+wrangler.toml
