@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.1.4] - 2025-07-04
+
+### Added (July 4, 2025)
+
+- **Backend Status Page**: Dedicated status page that displays backend service availability
+- **Backend Health Monitoring**: Automated health checks with 5-second timeouts for backend connectivity
+- **Smart Redirection System**: Automatic redirection to status page when backend is completely unavailable
+- **Anonymous User Support**: Fixed anonymous pixel placement (users can now place pixels without authentication)
+- **Service Status Indicators**: Individual status monitoring for Grid Data, WebSocket, and API endpoints
+- **Auto-refresh Status Checking**: Status page checks backend every 3 minutes with manual refresh option
+
+### Fixed (July 4, 2025)
+
+- **Anonymous Pixel Placement**: Fixed "Cannot read properties of null" error when anonymous users place pixels
+- **Backend Connectivity**: Enhanced error handling to distinguish between temporary issues and complete backend unavailability
+- **User Activity Logging**: Fixed null pointer exceptions in console logging for anonymous users
+
 ## [0.1.3] (i guess) - 2025-07-03
 
 ### Added (July 3, 2025)

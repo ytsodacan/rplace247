@@ -4,11 +4,11 @@ Collaborative pixel placement app for the Neurosama community
 
 ## Most recent Changelog
 
-### 7/3/25
+### 0.1.4 - 7/4/25
 
-Fixed grid corruption on Durable Object hibernation. Added backup system, corruption detection, admin console, and UI improvements.
+Added backend status page with health monitoring and smart redirection. Fixed anonymous user pixel placement.
 
-**Files**: src/index.js, public/static/js/script.js, public/index.html, public/static/css/style.css, public/static/js/grid-tender.js
+**Files**: public/status.html, public/static/js/script.js, src/index.js
 
 See [full changelog](./changelog.md) for details.
 
