@@ -67,6 +67,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const MAX_RECONNECT_ATTEMPTS = 3;
     const RECONNECT_DELAY = 1000;
     const sessionId = generateSessionId();
+    let pingInterval = null;
+    const PING_INTERVAL = 30000;
     let userToken = localStorage.getItem("discord_token");
     let userData = JSON.parse(localStorage.getItem("user_data") || "null");
 
@@ -653,22 +655,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
+        // Only log actual pixel updates (when x and y are numbers)
+        if (typeof x !== "number" || typeof y !== "number") {
+            return;
+        }
+
         const logEntry = document.createElement("div");
         logEntry.className = "log-entry";
-        let finalContentHTML = "";
-
-        if (typeof y === "number" && typeof x === "number") {
-            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
-        } else if (
-            y === "Connected" ||
-            y === "Disconnected" ||
-            y === "Reconnecting..." ||
-            y.startsWith("Connection Error")
-        ) {
-            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
-        } else {
-            finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
-        }
+        const finalContentHTML = `<span style="color: #00ff00">${x}</span><span style="color: #00ff00">,</span> <span style="color: #00ff00">${y}</span> updated`;
 
         logEntry.innerHTML = `
         <i class="fa-solid fa-circle" style="font-size:10px; margin-right: 10px; margin-left: 6px; color: ${color}; font-weight: bold;"></i>
@@ -1054,7 +1048,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         btn.addEventListener("click", () => {
             if (!socket) return;
-            addPixelLogEntry("System", "Reconnecting...", "#ffff00");
             btn.disabled = true;
 
             if (fallbackMode) {
@@ -1084,7 +1077,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             socket.onopen = () => {
                 console.log("Connected to backend WebSocket");
-                addPixelLogEntry("System", "Connected", "#00ff00");
                 reconnectButton.style.display = "none";
                 reconnectButton.disabled = false;
                 reconnectAttempts = 0;
@@ -1095,6 +1087,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     fallbackPollingInterval = null;
                 }
 
+                startPing();
+                updateConnectionStatus(true);
+
                 if (window.adminConsole) {
                     window.adminConsole.onReconnect();
                 }
@@ -1103,6 +1098,12 @@ document.addEventListener("DOMContentLoaded", () => {
             socket.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+
+                    if (data.type === "pong") {
+                        // Handle pong response for ping
+                        updateConnectionStatus(true);
+                        return;
+                    }
 
                     if (data.type === "pixelUpdate") {
                         const { x, y, color } = data;
@@ -1154,7 +1155,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             socket.onclose = (event) => {
                 console.log("WebSocket connection closed:", event.code, event.reason);
-                addPixelLogEntry("System", "Disconnected", "#ff0000");
+                stopPing();
+                updateConnectionStatus(false);
 
                 if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
                     reconnectAttempts++;
@@ -1179,7 +1181,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             socket.onerror = (error) => {
                 console.error("WebSocket error:", error);
-                addPixelLogEntry("System", "Connection Error", "#ff9900");
+                stopPing();
+                updateConnectionStatus(false);
 
                 if (IS_DEV_MODE && reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
                     console.log("WebSocket failed in dev mode, enabling fallback");
@@ -1191,11 +1194,6 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         } catch (error) {
             console.error("Failed to create WebSocket connection:", error);
-            addPixelLogEntry(
-                "System",
-                `Connection Error: ${error.message}`,
-                "#ff9900",
-            );
 
             if (IS_DEV_MODE) {
                 console.log("WebSocket creation failed in dev mode, enabling fallback");
@@ -1209,6 +1207,81 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function setupWebSocket() {
         connectWebSocket();
+    }
+
+    function startPing() {
+        if (pingInterval) {
+            clearInterval(pingInterval);
+        }
+        
+        pingInterval = setInterval(() => {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ type: "ping" }));
+            }
+        }, PING_INTERVAL);
+    }
+
+    function stopPing() {
+        if (pingInterval) {
+            clearInterval(pingInterval);
+            pingInterval = null;
+        }
+    }
+
+    function updateConnectionStatus(connected) {
+        const statusIndicator = document.getElementById("connectionStatus");
+        if (statusIndicator) {
+            statusIndicator.textContent = connected ? "✓" : "!";
+            statusIndicator.className = connected ? "connection-status connected" : "connection-status disconnected";
+            statusIndicator.title = connected ? "Connected" : "Disconnected";
+        }
+
+        if (!connected && !fallbackMode) {
+            showReconnectModal();
+        } else if (connected) {
+            hideReconnectModal();
+        }
+    }
+
+    function showReconnectModal() {
+        let modal = document.getElementById("reconnectModal");
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = "reconnectModal";
+            modal.className = "modal-overlay";
+            modal.style.zIndex = "10001";
+            modal.innerHTML = `
+                <div class="settings-window" style="max-width: 400px; text-align: center;">
+                    <h2 class="mb-4 text-xl font-bold">Connection Lost</h2>
+                    <p class="mb-6 text-gray-600">Your connection to the server has been lost. Please reconnect to continue.</p>
+                    <button id="modalReconnectBtn" class="btn btn-primary w-full">
+                        <span class="material-icons-round" style="font-size: 1rem;">refresh</span>
+                        Reconnect
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const reconnectBtn = modal.querySelector("#modalReconnectBtn");
+            reconnectBtn.addEventListener("click", () => {
+                hideReconnectModal();
+                if (socket) {
+                    socket.close();
+                }
+                reconnectAttempts = 0;
+                connectWebSocket();
+            });
+        }
+        modal.classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function hideReconnectModal() {
+        const modal = document.getElementById("reconnectModal");
+        if (modal) {
+            modal.classList.remove("active");
+            document.body.style.overflow = "";
+        }
     }
 
     function isCooldownActive() {
@@ -1455,8 +1528,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function enableFallbackMode() {
         fallbackMode = true;
-        addPixelLogEntry("System", "Fallback Mode (Polling)", "#ffaa00");
-        addPixelLogEntry("System", "Websocket is down.", "#ff0000");
         console.log("Enabled fallback polling mode.");
 
         // Check if backend is completely down

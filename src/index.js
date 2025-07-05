@@ -204,6 +204,8 @@ export class GridDurableObject {
     this.backupInterval = null;
     this.pixelChangesSinceBackup = false;
     this.lastPixelUpdateTime = 0;
+    this.sessionActivity = new Map();
+    this.timeoutCheckInterval = null;
   }
 
   async initialize() {
@@ -1435,15 +1437,23 @@ export class GridDurableObject {
   async handleWebSocket(webSocket) {
     webSocket.accept();
     this.sessions.add(webSocket);
+    
+    const now = Date.now();
+    this.sessionActivity.set(webSocket, now);
 
     if (this.sessions.size === 1) {
       this.startBackupInterval();
+      this.startTimeoutCheck();
     }
 
     webSocket.addEventListener("message", async (event) => {
+      this.sessionActivity.set(webSocket, Date.now());
+      
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "admin_console_subscribe") {
+        if (data.type === "ping") {
+          webSocket.send(JSON.stringify({ type: "pong" }));
+        } else if (data.type === "admin_console_subscribe") {
           const token = data.token;
           if (token) {
             const user = await validateDiscordToken(token, this.env);
@@ -1462,15 +1472,19 @@ export class GridDurableObject {
     webSocket.addEventListener("close", () => {
       this.sessions.delete(webSocket);
       this.adminSessions.delete(webSocket);
+      this.sessionActivity.delete(webSocket);
       if (this.sessions.size === 0) {
         this.stopBackupInterval();
+        this.stopTimeoutCheck();
       }
     });
     webSocket.addEventListener("error", () => {
       this.sessions.delete(webSocket);
       this.adminSessions.delete(webSocket);
+      this.sessionActivity.delete(webSocket);
       if (this.sessions.size === 0) {
         this.stopBackupInterval();
+        this.stopTimeoutCheck();
       }
     });
   }
@@ -1811,6 +1825,56 @@ export class GridDurableObject {
       clearInterval(this.backupInterval);
       this.backupInterval = null;
       console.log("Backup interval stopped");
+    }
+  }
+
+  startTimeoutCheck() {
+    if (this.timeoutCheckInterval) {
+      return;
+    }
+
+    this.timeoutCheckInterval = setInterval(() => {
+      this.checkAndCloseIdleConnections();
+    }, 30000);
+
+    console.log("Connection timeout check started");
+  }
+
+  stopTimeoutCheck() {
+    if (this.timeoutCheckInterval) {
+      clearInterval(this.timeoutCheckInterval);
+      this.timeoutCheckInterval = null;
+      console.log("Connection timeout check stopped");
+    }
+  }
+
+  checkAndCloseIdleConnections() {
+    const now = Date.now();
+    const timeoutMs = 60 * 1000;
+    const sessionsToClose = [];
+
+    for (const [webSocket, lastActivity] of this.sessionActivity.entries()) {
+      if (now - lastActivity > timeoutMs) {
+        sessionsToClose.push(webSocket);
+      }
+    }
+
+    for (const webSocket of sessionsToClose) {
+      console.log(`Closing idle WebSocket connection (idle for ${Math.round((now - this.sessionActivity.get(webSocket)) / 1000)}s)`);
+      this.sessionActivity.delete(webSocket);
+      this.sessions.delete(webSocket);
+      this.adminSessions.delete(webSocket);
+      
+      try {
+        webSocket.close(1000, "Connection timeout due to inactivity");
+      } catch (error) {
+        console.error("Error closing idle WebSocket:", error);
+      }
+    }
+
+    if (sessionsToClose.length > 0 && this.sessions.size === 0) {
+      this.stopBackupInterval();
+      this.stopTimeoutCheck();
     }
   }
 

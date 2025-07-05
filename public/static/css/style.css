@@ -1016,3 +1016,46 @@ input:checked + .slider:before {
 		justify-content: center;
 	}
 }
+
+/* Connection Status Indicator */
+.connection-status {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	margin-left: 8px;
+	font-size: 12px;
+	font-weight: bold;
+	border-radius: 3px;
+	transition: all 0.2s ease;
+	cursor: help;
+}
+
+.connection-status.connected {
+	background-color: var(--success);
+	color: white;
+}
+
+.connection-status.disconnected {
+	background-color: var(--error);
+	color: white;
+}
+
+.connection-status:hover {
+	transform: scale(1.1);
+	min-width: 80px;
+	transition: all 0.3s ease;
+}
+
+.connection-status.connected:hover::after {
+	content: "Connected";
+	margin-left: 4px;
+	font-size: 11px;
+}
+
+.connection-status.disconnected:hover::after {
+	content: "Disconnected";
+	margin-left: 4px;
+	font-size: 11px;
+}
