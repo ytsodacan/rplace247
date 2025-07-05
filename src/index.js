@@ -181,10 +181,22 @@ export class GridDurableObject {
     this.activeUsers = new Map();
     this.recentPlacements = new Map();
     this.lastPixelUpdateTime = 0;
-    this.sessionActivity = new Map();
-    this.timeoutCheckInterval = null;
     this.initialized = false;
     this.chunkCache = new Map();
+
+    // After creating the sets, restore any sockets that already exist (the DO may
+    // have just been restarted after hibernation).
+    for (const ws of state.getWebSockets()) {
+      this.sessions.add(ws);
+      try {
+        const info = ws.deserializeAttachment?.();
+        if (info && info.isAdmin) {
+          this.adminSessions.add(ws);
+        }
+      } catch {
+        /* ignore attachment errors */
+      }
+    }
   }
 
   async initialize() {
@@ -1344,64 +1356,68 @@ export class GridDurableObject {
   }
 
   async handleWebSocket(webSocket) {
-    webSocket.accept();
+    // Cloudflare WebSocket Hibernation API – this allows the DO to sleep while
+    // connections remain open (no GB-seconds while idle).
+    this.state.acceptWebSocket(webSocket);
+
+    // Track the connection for admin-dash features.
     this.sessions.add(webSocket);
+  }
 
-    const now = Date.now();
-    this.sessionActivity.set(webSocket, now);
+  /* ----------------------------------------------------------
+   * Hibernation-friendly WebSocket handlers – these are invoked
+   * by the runtime after the DO wakes up, so we cannot rely on
+   * addEventListener() inside handleWebSocket().
+   * -------------------------------------------------------- */
 
-    if (this.sessions.size === 1) {
-      this.startTimeoutCheck();
-    }
+  async webSocketMessage(ws, message) {
+    // Ensure this connection is tracked even after hibernation.
+    this.sessions.add(ws);
 
-    webSocket.addEventListener("message", async (event) => {
-      this.sessionActivity.set(webSocket, Date.now());
+    try {
+      const data = JSON.parse(typeof message === "string" ? message : new TextDecoder().decode(message));
 
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "ping") {
-          webSocket.send(JSON.stringify({ type: "pong" }));
-        } else if (data.type === "admin_console_subscribe") {
-          const token = data.token;
-          if (token) {
-            const user = await validateDiscordToken(token, this.env);
-            if (user && this.isAdmin(user.id)) {
-              this.adminSessions.add(webSocket);
-              this.logToConsole("info", `Admin console connected: ${user.username}`);
-            }
-          }
-        } else if (data.type === "admin_console_unsubscribe") {
-          this.adminSessions.delete(webSocket);
+      if (data.type === "ping") {
+        ws.send(JSON.stringify({ type: "pong" }));
+        return;
+      }
+
+      if (data.type === "admin_console_subscribe") {
+        const user = data.token ? await validateDiscordToken(data.token, this.env) : null;
+        if (user && this.isAdmin(user.id)) {
+          this.adminSessions.add(ws);
+          try { ws.serializeAttachment?.({ isAdmin: true, user: user.username }); } catch { }
+          this.logToConsole("info", `Admin console connected: ${user.username}`);
         }
-      } catch {
+        return;
       }
-    });
 
-    webSocket.addEventListener("close", () => {
-      this.sessions.delete(webSocket);
-      this.adminSessions.delete(webSocket);
-      this.sessionActivity.delete(webSocket);
-      if (this.sessions.size === 0) {
-        this.stopTimeoutCheck();
+      if (data.type === "admin_console_unsubscribe") {
+        this.adminSessions.delete(ws);
+        return;
       }
-    });
-    webSocket.addEventListener("error", () => {
-      this.sessions.delete(webSocket);
-      this.adminSessions.delete(webSocket);
-      this.sessionActivity.delete(webSocket);
-      if (this.sessions.size === 0) {
-        this.stopTimeoutCheck();
-      }
-    });
+    } catch {
+      /* ignore malformed JSON */
+    }
+  }
+
+  async webSocketClose(ws /*, code, reason, wasClean */) {
+    this.sessions.delete(ws);
+    this.adminSessions.delete(ws);
+  }
+
+  async webSocketError(ws /*, error */) {
+    this.sessions.delete(ws);
+    this.adminSessions.delete(ws);
   }
 
   broadcast(message) {
     const messageStr = JSON.stringify(message);
-    for (const session of this.sessions) {
+    for (const ws of this.state.getWebSockets()) {
       try {
-        session.send(messageStr);
+        ws.send(messageStr);
       } catch {
-        this.sessions.delete(session);
+        // ignore these basically
       }
     }
   }
@@ -1530,58 +1546,6 @@ export class GridDurableObject {
       console.error("Failed to send deployment webhook:", error);
     }
   }
-
-
-
-  startTimeoutCheck() {
-    if (this.timeoutCheckInterval) {
-      return;
-    }
-
-    this.timeoutCheckInterval = setInterval(() => {
-      this.checkAndCloseIdleConnections();
-    }, 30000);
-
-    console.log("Connection timeout check started");
-  }
-
-  stopTimeoutCheck() {
-    if (this.timeoutCheckInterval) {
-      clearInterval(this.timeoutCheckInterval);
-      this.timeoutCheckInterval = null;
-      console.log("Connection timeout check stopped");
-    }
-  }
-
-  checkAndCloseIdleConnections() {
-    const now = Date.now();
-    const timeoutMs = 60 * 1000;
-    const sessionsToClose = [];
-
-    for (const [webSocket, lastActivity] of this.sessionActivity.entries()) {
-      if (now - lastActivity > timeoutMs) {
-        sessionsToClose.push(webSocket);
-      }
-    }
-
-    for (const webSocket of sessionsToClose) {
-      console.log(`Closing idle WebSocket connection (idle for ${Math.round((now - this.sessionActivity.get(webSocket)) / 1000)}s)`);
-      this.sessionActivity.delete(webSocket);
-      this.sessions.delete(webSocket);
-      this.adminSessions.delete(webSocket);
-
-      try {
-        webSocket.close(1000, "Connection timeout due to inactivity");
-      } catch (error) {
-        console.error("Error closing idle WebSocket:", error);
-      }
-    }
-
-    if (sessionsToClose.length > 0 && this.sessions.size === 0) {
-      this.stopTimeoutCheck();
-    }
-  }
-
 }
 
 function extractBearerToken(request) {
