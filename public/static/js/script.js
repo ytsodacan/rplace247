@@ -635,6 +635,7 @@ document.addEventListener("DOMContentLoaded", () => {
         activeUsersList.innerHTML = usersHTML;
     }
 
+    // Polls /api/active-users every 5 s. Used only when in fallback mode.
     function startActiveUsersPolling() {
         if (activeUsersInterval) {
             clearInterval(activeUsersInterval);
@@ -644,7 +645,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         activeUsersInterval = setInterval(updateActiveUsers, 5000);
     }
-
 
     function addPixelLogEntry(x, y, color) {
         if (!pixelChatLog) {
@@ -1029,6 +1029,10 @@ document.addEventListener("DOMContentLoaded", () => {
             clearInterval(fallbackPollingInterval);
             fallbackPollingInterval = null;
         }
+        if (activeUsersInterval) {
+            clearInterval(activeUsersInterval);
+            activeUsersInterval = null;
+        }
         fallbackMode = false;
         console.log("Disabled fallback polling mode");
     }
@@ -1081,6 +1085,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (fallbackPollingInterval) {
                     clearInterval(fallbackPollingInterval);
                     fallbackPollingInterval = null;
+                }
+
+                if (activeUsersInterval) {
+                    clearInterval(activeUsersInterval);
+                    activeUsersInterval = null;
                 }
 
                 startPing();
@@ -1137,6 +1146,10 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (data.type === "announcement") {
                         if (window.gridTender) {
                             window.gridTender.updateAnnouncementDisplay(data.announcement || '');
+                        }
+                    } else if (data.type === "activeUsers") {
+                        if (Array.isArray(data.activeUsers)) {
+                            displayActiveUsers(data.activeUsers, data.activeUsers.length);
                         }
                     } else if (data.type === "console_log") {
                         if (window.adminConsole) {
@@ -1513,10 +1526,6 @@ document.addEventListener("DOMContentLoaded", () => {
         updateUserInterface();
         initTheme();
 
-        startActiveUsersPolling();
-
-        initCollapsiblePanels();
-
         console.log("Frontend initialized!");
     }
 
@@ -1536,6 +1545,9 @@ document.addEventListener("DOMContentLoaded", () => {
         if (!fallbackPollingInterval) {
             fallbackPollingInterval = setInterval(pollForUpdates, FALLBACK_POLL_INTERVAL);
         }
+
+        // Start active-users polling in fallback mode.
+        startActiveUsersPolling();
 
         reconnectButton.style.display = "none";
     }

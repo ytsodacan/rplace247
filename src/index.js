@@ -183,6 +183,8 @@ export class GridDurableObject {
     this.lastPixelUpdateTime = 0;
     this.initialized = false;
     this.chunkCache = new Map();
+    // Timestamp of the last active-users broadcast (ms)
+    this.lastActiveUsersBroadcast = 0;
 
     // After creating the sets, restore any sockets that already exist (the DO may
     // have just been restarted after hibernation).
@@ -399,6 +401,9 @@ export class GridDurableObject {
         this.activeUsers.delete(id);
       }
     }
+
+    // Push live update to dashboards
+    this.broadcastActiveUsers();
   }
 
   observePixels(userId, username) {
@@ -419,6 +424,9 @@ export class GridDurableObject {
         this.recentPlacements.delete(id);
       }
     }
+
+    // Push live update to dashboards
+    this.broadcastActiveUsers();
   }
 
   getActiveUsers(timeWindowMs = 30 * 1000) {
@@ -1388,6 +1396,8 @@ export class GridDurableObject {
           this.adminSessions.add(ws);
           try { ws.serializeAttachment?.({ isAdmin: true, user: user.username }); } catch { }
           this.logToConsole("info", `Admin console connected: ${user.username}`);
+          // Send initial snapshot without waiting for next throttle window
+          this.broadcastActiveUsers(true);
         }
         return;
       }
@@ -1418,6 +1428,43 @@ export class GridDurableObject {
         ws.send(messageStr);
       } catch {
         // ignore these basically
+      }
+    }
+  }
+
+  /**
+   * Broadcast a real-time snapshot of active users over WebSocket.
+   * This is sent primarily to admin sessions so that the dashboard can
+   * update without polling. To avoid unnecessary wake-ups, we throttle
+   * the broadcast to at most once every 5 seconds unless `force` is true.
+   */
+  broadcastActiveUsers(force = false) {
+    const now = Date.now();
+    if (!force && now - this.lastActiveUsersBroadcast < 5000) {
+      return; // Skip – broadcast too recent.
+    }
+
+    this.lastActiveUsersBroadcast = now;
+
+    const payload = {
+      type: "activeUsers",
+      activeUsers: this.getActiveUsers(),
+      timestamp: now,
+    };
+
+    const messageStr = JSON.stringify(payload);
+
+    // Prefer sending to connected admin dashboards; if none are
+    // connected we still broadcast to all to ensure consistency.
+    const targets = this.adminSessions.size > 0
+      ? this.adminSessions
+      : this.state.getWebSockets();
+
+    for (const ws of targets) {
+      try {
+        ws.send(messageStr);
+      } catch {
+        // Ignore failed sockets; they will be cleaned up elsewhere.
       }
     }
   }
