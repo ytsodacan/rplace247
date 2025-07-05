@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Filtered - Neuro.Place</title>
+    <link rel="stylesheet" href="/static/css/dash.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .filtered-text {
+            font-size: 3rem;
+            font-weight: bold;
+            text-shadow: 0 0 20px #ff69b4, 0 0 40px #ff69b4, 0 0 60px #ff69b4;
+            color: #fff;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .message-container {
+            text-align: center;
+            max-width: 600px;
+            padding: 0 2rem;
+        }
+
+        .pen-test-message {
+            font-size: 1.2rem;
+            color: #ff69b4;
+            margin-bottom: 1.5rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .countdown {
+            font-size: 2rem;
+            color: #fff;
+            margin: 2rem 0;
+            font-weight: bold;
+            text-shadow: 0 0 10px #6366f1;
+        }
+
+        .links {
+            margin-top: 2rem;
+            opacity: 0;
+            transition: opacity 0.5s ease-in;
+        }
+
+        .links.visible {
+            opacity: 1;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 10px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 1rem;
+            transition: transform 0.2s;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #374151, #4b5563);
+        }
+
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #4b5563, #6b7280);
+        }
+
+        @media (max-width: 768px) {
+            .filtered-text {
+                font-size: 2rem;
+            }
+
+            .pen-test-message {
+                font-size: 1rem;
+            }
+
+            .countdown {
+                font-size: 1.5rem;
+            }
+
+            .btn {
+                display: block;
+                margin: 0.5rem auto;
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="message-container">
+        <div class="filtered-text">Filtered.</div>
+
+        <div class="pen-test-message">
+            Pen testing is not needed right now.
+            <br>
+            Thanks for your interest in security, but this system is already protected.
+        </div>
+
+        <div class="countdown" id="countdown">10</div>
+
+        <div class="links" id="links">
+            <a href="/" class="btn">🏠 Homepage</a>
+            <a href="/status.html" class="btn btn-secondary">📊 Status Page</a>
+        </div>
+    </div>
+
+    <script>
+        let timeLeft = 10;
+        const countdownEl = document.getElementById('countdown');
+        const linksEl = document.getElementById('links');
+
+        const timer = setInterval(() => {
+            timeLeft--;
+            countdownEl.textContent = timeLeft;
+
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                countdownEl.style.display = 'none';
+                linksEl.classList.add('visible');
+            }
+        }, 1000);
+
+        // Show links immediately if user clicks anywhere
+        document.addEventListener('click', () => {
+            if (timeLeft > 0) {
+                clearInterval(timer);
+                countdownEl.style.display = 'none';
+                linksEl.classList.add('visible');
+            }
+        });
+    </script>
+</body>
+
+</html>

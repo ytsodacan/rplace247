@@ -554,6 +554,15 @@ class GridTender {
                         <span class="console-status" id="consoleStatus">Disconnected</span>
                     </div>
                 </div>
+                <div class="admin-section">
+                    <h4>Dashboard</h4>
+                    <div class="dashboard-controls">
+                        <button id="openDashboardBtn" class="btn btn-primary">
+                            <span class="material-icons-round">dashboard</span>
+                            Open Full Dashboard
+                        </button>
+                    </div>
+                </div>
             </div>        `;
 
 		this.setupDragging();
@@ -1116,6 +1125,13 @@ class GridTender {
 			});
 		}
 
+		const openDashboardBtn = document.getElementById("openDashboardBtn");
+		if (openDashboardBtn) {
+			openDashboardBtn.addEventListener("click", () => {
+				this.openDashboard();
+			});
+		}
+
 		window.addEventListener("storage", (e) => {
 			if (e.key === "discord_token" || e.key === "user_data") {
 				this.loadAuthState();
@@ -1406,6 +1422,18 @@ class GridTender {
 		} catch (error) {
 			this.log("Error clearing announcement:", error);
 			this.showMessage(`Error: ${error.message}`, "error");
+		}
+	}
+
+	/**
+	 * Open the full admin dashboard
+	 */
+	openDashboard() {
+		const token = localStorage.getItem('discord_token');
+		if (token) {
+			window.open(`/dash.html?token=${encodeURIComponent(token)}`, '_blank');
+		} else {
+			window.open('/dash.html', '_blank');
 		}
 	}
 

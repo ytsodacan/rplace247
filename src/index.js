@@ -151,12 +151,53 @@ app.all(/ws.*/, (c) => c.redirect("/ws", 301));
   "/announcement",
   "/api/updates",
   "/api/active-users",
+  "/admin/auth-check",
+  "/admin/grid-snapshot",
+  "/admin/connections-count",
+  "/admin/pixel-log",
+  "/admin/disconnect-session",
+  "/admin/toast",
+  "/admin/status-update",
+  "/admin/pause-updates",
+  "/admin/pause-status",
+  "/admin/grid-manipulate",
+  "/admin/grid-clear",
+  "/api/status-message",
 ].forEach((p) =>
   app.all(p, (c) => {
     const stub = c.env.GRID_STATE.get(c.env.GRID_STATE.idFromName("global"));
     return stub.fetch(c.req.raw);
   }),
 );
+
+// Admin dashboard auth middleware - blocks access to dash.html without proper auth
+app.get("/dash.html", async (c) => {
+  const token = extractBearerToken(c.req) || c.req.query('token');
+
+  if (!token) {
+    // Redirect to filtered.html for unauthenticated access
+    return c.redirect('/filtered.html', 302);
+  }
+
+  // Validate the token
+  const user = await validateDiscordToken(token, c.env);
+  if (!user) {
+    // Redirect to filtered.html for invalid tokens
+    return c.redirect('/filtered.html', 302);
+  }
+
+  // Check admin privileges
+  const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
+  const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
+
+  if (!adminIds.includes(user.id)) {
+    // Redirect to filtered.html for insufficient privileges
+    return c.redirect('/filtered.html', 302);
+  }
+
+  // User is authenticated and has admin privileges - serve the dashboard
+  return c.env.ASSETS.fetch(c.req.raw);
+});
 
 app.get("*", async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
@@ -187,12 +228,16 @@ export class GridDurableObject {
     this.pendingChunkSaves = new Set();
     this.saveTimeout = null;
     this.lastPlacementByUser = new Map();
+    this.pixelPlacementLog = [];
+    this.MAX_PIXEL_LOG_ENTRIES = 100;
+    this.gridUpdatesPaused = false;
+    this.statusPageMessage = "";
 
     for (const ws of state.getWebSockets()) {
       this.sessions.add(ws);
       try {
         const info = ws.deserializeAttachment?.();
-        if (info && info.isAdmin) {
+        if (info?.isAdmin) {
           this.adminSessions.add(ws);
         }
       } catch {
@@ -205,6 +250,9 @@ export class GridDurableObject {
 
     await this.loadAdminUsers();
     await this.loadCurrentAnnouncement();
+    await this.loadPixelLog();
+    await this.loadGridUpdateStatus();
+    await this.loadStatusPageMessage();
 
     this.initialized = true;
   }
@@ -255,6 +303,68 @@ export class GridDurableObject {
       console.error("Error loading current announcement:", error);
       this.currentAnnouncement = "";
     }
+  }
+
+  async loadPixelLog() {
+    try {
+      this.pixelPlacementLog = (await this.state.storage.get("pixel_placement_log")) || [];
+      console.log("Loaded pixel placement log:", this.pixelPlacementLog.length, "entries");
+    } catch (error) {
+      console.error("Error loading pixel placement log:", error);
+      this.pixelPlacementLog = [];
+    }
+  }
+
+  async loadGridUpdateStatus() {
+    try {
+      this.gridUpdatesPaused = (await this.state.storage.get("grid_updates_paused")) || false;
+      console.log("Loaded grid update status:", this.gridUpdatesPaused ? "paused" : "active");
+    } catch (error) {
+      console.error("Error loading grid update status:", error);
+      this.gridUpdatesPaused = false;
+    }
+  }
+
+  async loadStatusPageMessage() {
+    try {
+      this.statusPageMessage = (await this.state.storage.get("status_page_message")) || "";
+      console.log("Loaded status page message:", this.statusPageMessage ? "present" : "none");
+    } catch (error) {
+      console.error("Error loading status page message:", error);
+      this.statusPageMessage = "";
+    }
+  }
+
+  async savePixelLog() {
+    try {
+      await this.state.storage.put("pixel_placement_log", this.pixelPlacementLog);
+    } catch (error) {
+      console.error("Error saving pixel placement log:", error);
+    }
+  }
+
+  async saveGridUpdateStatus() {
+    try {
+      await this.state.storage.put("grid_updates_paused", this.gridUpdatesPaused);
+    } catch (error) {
+      console.error("Error saving grid update status:", error);
+    }
+  }
+
+  async saveStatusPageMessage() {
+    try {
+      await this.state.storage.put("status_page_message", this.statusPageMessage);
+    } catch (error) {
+      console.error("Error saving status page message:", error);
+    }
+  }
+
+  addPixelLogEntry(entry) {
+    this.pixelPlacementLog.unshift(entry);
+    if (this.pixelPlacementLog.length > this.MAX_PIXEL_LOG_ENTRIES) {
+      this.pixelPlacementLog = this.pixelPlacementLog.slice(0, this.MAX_PIXEL_LOG_ENTRIES);
+    }
+    this.savePixelLog();
   }
 
   async initializeWhitelist() {
@@ -1003,6 +1113,14 @@ export class GridDurableObject {
     }
     if (url.pathname === "/pixel" && request.method === "POST") {
       try {
+        // Check if grid updates are paused
+        if (this.gridUpdatesPaused) {
+          return new Response(
+            JSON.stringify({ message: "Grid updates are currently paused by administrators" }),
+            { status: 503, headers: corsHeaders }
+          );
+        }
+
         const token = extractBearerToken(request);
         let user = null;
 
@@ -1102,6 +1220,17 @@ export class GridDurableObject {
           y,
           color,
           user: user ? { id: user.id, username: user.username } : null,
+        });
+
+        // Add to pixel placement log
+        this.addPixelLogEntry({
+          x,
+          y,
+          color: parseInt(color.replace('#', ''), 16),
+          timestamp: Date.now(),
+          sessionId: user ? user.id : (requestData.sessionId || request.headers.get("x-session-id") || "anonymous"),
+          inputMethod: requestData.inputMethod || request.headers.get("x-input-method") || "click",
+          username: user ? user.username : "anonymous"
         });
 
         this.logToConsole("info", `Pixel placed at (${x}, ${y}) by ${user ? user.username : 'anonymous'}`, {
@@ -1350,6 +1479,482 @@ export class GridDurableObject {
           { status: 500, headers: corsHeaders },
         );
       }
+    }
+
+    // New admin endpoints
+    if (url.pathname === "/admin/auth-check" && request.method === "GET") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user) {
+        return new Response(
+          JSON.stringify({ message: "Invalid or expired token" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const isAdmin = this.isAdmin(user.id);
+      if (!isAdmin) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ isAdmin: true }),
+        { headers: corsHeaders }
+      );
+    }
+
+    if (url.pathname === "/admin/grid-snapshot" && request.method === "GET") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      const chunkParam = url.searchParams.get("chunk");
+      const chunkSize = 50;
+      const totalChunks = Math.ceil(500 / chunkSize);
+
+      if (chunkParam !== null) {
+        const chunkIndex = parseInt(chunkParam, 10);
+        if (Number.isNaN(chunkIndex) || chunkIndex < 0 || chunkIndex >= totalChunks) {
+          return new Response(
+            JSON.stringify({ error: "Invalid chunk index" }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        const chunkKey = `chunk:${chunkIndex}`;
+        let chunkData = this.chunkCache.get(chunkKey);
+        if (!chunkData) {
+          const chunkStr = await this.env.PALETTE_KV.get(chunkKey);
+          if (chunkStr) {
+            try {
+              const parsed = JSON.parse(chunkStr);
+              if (Array.isArray(parsed) && parsed.length === chunkSize) {
+                chunkData = parsed;
+              }
+            } catch { }
+          }
+          if (!chunkData) {
+            chunkData = Array(chunkSize).fill(0).map(() => Array(500).fill("#FFFFFF"));
+          }
+          this.chunkCache.set(chunkKey, chunkData);
+        }
+
+        return new Response(
+          JSON.stringify({
+            chunk: chunkIndex,
+            totalChunks,
+            startRow: chunkIndex * chunkSize,
+            endRow: Math.min((chunkIndex + 1) * chunkSize, 500),
+            data: chunkData,
+          }),
+          { headers: corsHeaders }
+        );
+      } else {
+        // Return chunked format for admin preview
+        const chunks = [];
+        for (let i = 0; i < totalChunks; i++) {
+          const chunkKey = `chunk:${i}`;
+          let chunkData = this.chunkCache.get(chunkKey);
+          if (!chunkData) {
+            const chunkStr = await this.env.PALETTE_KV.get(chunkKey);
+            if (chunkStr) {
+              try {
+                const parsed = JSON.parse(chunkStr);
+                if (Array.isArray(parsed) && parsed.length === chunkSize) {
+                  chunkData = parsed;
+                }
+              } catch { }
+            }
+            if (!chunkData) {
+              chunkData = Array(chunkSize).fill(0).map(() => Array(500).fill("#FFFFFF"));
+            }
+            this.chunkCache.set(chunkKey, chunkData);
+          }
+
+          // Convert to flat array of color integers
+          const flatPixels = [];
+          for (const row of chunkData) {
+            for (const color of row) {
+              const colorInt = typeof color === 'string' ? parseInt(color.replace('#', ''), 16) : color;
+              flatPixels.push(colorInt);
+            }
+          }
+
+          chunks.push({
+            startIdx: i * chunkSize * 500,
+            pixels: flatPixels
+          });
+        }
+
+        return new Response(
+          JSON.stringify({
+            chunks: chunks,
+            gridSize: 500
+          }),
+          { headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/admin/connections-count" && request.method === "GET") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ count: this.sessions.size }),
+        { headers: corsHeaders }
+      );
+    }
+
+    if (url.pathname === "/admin/pixel-log" && request.method === "GET") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      const limit = Math.min(parseInt(url.searchParams.get("limit")) || 50, 100);
+      const logSlice = this.pixelPlacementLog.slice(0, limit);
+
+      return new Response(
+        JSON.stringify({ log: logSlice }),
+        { headers: corsHeaders }
+      );
+    }
+
+    if (url.pathname === "/admin/disconnect-session" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      try {
+        const { sessionId } = await request.json();
+        if (!sessionId) {
+          return new Response(
+            JSON.stringify({ message: "Session ID is required" }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        // Note: This is a placeholder implementation
+        // Full session disconnect requires mapping session IDs to WebSocket objects
+        console.log(`Admin ${user.username} requested disconnect of session: ${sessionId}`);
+        this.logToConsole("info", `Session disconnect requested by ${user.username}: ${sessionId}`);
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Session disconnect requested" }),
+          { headers: corsHeaders }
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Invalid JSON" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/admin/toast" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      try {
+        const { message, type = "info" } = await request.json();
+        if (!message || !message.trim()) {
+          return new Response(
+            JSON.stringify({ message: "Message is required" }),
+            { status: 400, headers: corsHeaders }
+          );
+        }
+
+        this.broadcast({
+          type: "broadcast",
+          message: message.trim(),
+          messageType: type,
+          sender: user.username,
+          timestamp: Date.now(),
+        });
+
+        this.logToConsole("info", `Toast message sent by ${user.username}: ${message.trim()}`);
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Toast sent successfully" }),
+          { headers: corsHeaders }
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Invalid JSON" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/admin/status-update" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      try {
+        const { message } = await request.json();
+        this.statusPageMessage = message ? message.trim() : "";
+        await this.saveStatusPageMessage();
+
+        this.logToConsole("info", `Status page message updated by ${user.username}`);
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Status message updated" }),
+          { headers: corsHeaders }
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Invalid JSON" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/admin/pause-updates" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      try {
+        const { pause } = await request.json();
+        this.gridUpdatesPaused = Boolean(pause);
+        await this.saveGridUpdateStatus();
+
+        this.broadcast({
+          type: "grid_pause_status",
+          paused: this.gridUpdatesPaused,
+          timestamp: Date.now(),
+        });
+
+        this.logToConsole("info", `Grid updates ${this.gridUpdatesPaused ? 'paused' : 'resumed'} by ${user.username}`);
+
+        return new Response(
+          JSON.stringify({ success: true, paused: this.gridUpdatesPaused }),
+          { headers: corsHeaders }
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Invalid JSON" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/admin/pause-status" && request.method === "GET") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ updatesPaused: this.gridUpdatesPaused }),
+        { headers: corsHeaders }
+      );
+    }
+
+    if (url.pathname === "/admin/grid-manipulate" && request.method === "POST") {
+      const token = extractBearerToken(request);
+      if (!token) {
+        return new Response(
+          JSON.stringify({ message: "Authentication required" }),
+          { status: 401, headers: corsHeaders }
+        );
+      }
+
+      const user = await validateDiscordToken(token, this.env);
+      if (!user || !this.isAdmin(user.id)) {
+        return new Response(
+          JSON.stringify({ message: "Admin access required" }),
+          { status: 403, headers: corsHeaders }
+        );
+      }
+
+      try {
+        const { action, x, y, color } = await request.json();
+
+        if (action === "set_pixel") {
+          if (x == null || y == null || color == null || x < 0 || x >= 500 || y < 0 || y >= 500) {
+            return new Response(
+              JSON.stringify({ message: "Invalid coordinates or color" }),
+              { status: 400, headers: corsHeaders }
+            );
+          }
+
+          const chunkIndex = Math.floor(y / 50);
+          const rowInChunk = y % 50;
+          const chunkKey = `chunk:${chunkIndex}`;
+          const colorHex = typeof color === 'number' ? `#${color.toString(16).padStart(6, '0').toUpperCase()}` : color;
+
+          let chunkArr = this.chunkCache.get(chunkKey);
+          if (!chunkArr) {
+            const existingChunkStr = await this.env.PALETTE_KV.get(chunkKey);
+            if (existingChunkStr) {
+              try {
+                const parsed = JSON.parse(existingChunkStr);
+                if (Array.isArray(parsed) && parsed.length === 50) {
+                  chunkArr = parsed;
+                }
+              } catch { }
+            }
+            if (!chunkArr) {
+              chunkArr = Array(50).fill(0).map(() => Array(500).fill("#FFFFFF"));
+            }
+          }
+
+          chunkArr[rowInChunk][x] = colorHex;
+          this.chunkCache.set(chunkKey, chunkArr);
+          this.scheduleChunkSave(chunkKey);
+
+          this.broadcast({
+            type: "pixelUpdate",
+            x,
+            y,
+            color: colorHex,
+            user: { id: user.id, username: user.username },
+          });
+
+          this.addPixelLogEntry({
+            x,
+            y,
+            color: typeof color === 'number' ? color : parseInt(colorHex.replace('#', ''), 16),
+            timestamp: Date.now(),
+            sessionId: `admin:${user.id}`,
+            inputMethod: "admin_action",
+            username: user.username
+          });
+
+          this.logToConsole("info", `Admin pixel manipulation by ${user.username}: (${x}, ${y}) = ${colorHex}`);
+
+          return new Response(
+            JSON.stringify({ success: true, message: "Pixel set successfully" }),
+            { headers: corsHeaders }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({ message: "Unknown action" }),
+          { status: 400, headers: corsHeaders }
+        );
+      } catch {
+        return new Response(
+          JSON.stringify({ message: "Invalid JSON" }),
+          { status: 400, headers: corsHeaders }
+        );
+      }
+    }
+
+    if (url.pathname === "/api/status-message" && request.method === "GET") {
+      return new Response(
+        JSON.stringify({ message: this.statusPageMessage }),
+        { headers: corsHeaders }
+      );
     }
 
     return new Response("Not Found", { status: 404 });

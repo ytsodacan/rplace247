@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Neuro.Place</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round&display=block" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/dash.css">
+</head>
+
+<body>
+    <!-- Loading screen while dashboard initializes -->
+    <div id="authLoadingScreen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p class="text-white text-lg">Loading dashboard...</p>
+        </div>
+    </div>
+
+    <!-- Main dashboard - will be populated after initialization -->
+    <div id="dashboardContainer" class="dashboard-container" style="display: none;">
+        <!-- Admin content will be loaded here after successful initialization -->
+    </div>
+
+    <script src="/static/js/dash.js" type="module"></script>
+</body>
+
+</html>

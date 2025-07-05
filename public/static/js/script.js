@@ -1525,6 +1525,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await handleOAuthCallback();
         updateUserInterface();
         initTheme();
+        initCollapsiblePanels();
 
         console.log("Frontend initialized!");
     }
