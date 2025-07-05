@@ -103,12 +103,10 @@ html {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(
-		45deg,
-		transparent,
-		rgba(255, 255, 255, 0.1),
-		transparent
-	);
+	background: linear-gradient(45deg,
+			transparent,
+			rgba(255, 255, 255, 0.1),
+			transparent);
 	transform: translateX(-100%);
 	transition: transform 0.3s ease;
 }
@@ -162,18 +160,17 @@ html {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(
-		90deg,
-		var(--accent),
-		var(--accent-hover),
-		var(--accent)
-	);
+	background: linear-gradient(90deg,
+			var(--accent),
+			var(--accent-hover),
+			var(--accent));
 	background-size: 200% 100%;
 	animation: gradient-shift 3s ease-in-out infinite;
 	opacity: 0.05;
 }
 
 @keyframes gradient-shift {
+
 	0%,
 	100% {
 		background-position: 0 50%;
@@ -601,6 +598,7 @@ html {
 }
 
 @keyframes pulse {
+
 	0%,
 	100% {
 		opacity: 1;
@@ -644,12 +642,10 @@ html {
 	content: "";
 	position: absolute;
 	inset: -2px;
-	background: linear-gradient(
-		45deg,
-		var(--accent),
-		var(--accent-hover),
-		var(--accent)
-	);
+	background: linear-gradient(45deg,
+			var(--accent),
+			var(--accent-hover),
+			var(--accent));
 	background-size: 200% 200%;
 	border-radius: 1.5rem;
 	opacity: 0;
@@ -663,6 +659,7 @@ html {
 }
 
 @keyframes gradient-border {
+
 	0%,
 	100% {
 		background-position: 0 50%;
@@ -937,11 +934,11 @@ html {
 	border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
 	background-color: var(--success);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
 	transform: translateX(20px);
 }
 
@@ -992,6 +989,7 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 768px) {
+
 	.coords-display,
 	.zoom,
 	.zoom-in,

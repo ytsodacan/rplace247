@@ -183,15 +183,11 @@ export class GridDurableObject {
     this.lastPixelUpdateTime = 0;
     this.initialized = false;
     this.chunkCache = new Map();
-    // Timestamp of the last active-users broadcast (ms)
     this.lastActiveUsersBroadcast = 0;
-    // Rate-limiting & KV batching state
     this.pendingChunkSaves = new Set();
     this.saveTimeout = null;
     this.lastPlacementByUser = new Map();
 
-    // After creating the sets, restore any sockets that already exist (the DO may
-    // have just been restarted after hibernation).
     for (const ws of state.getWebSockets()) {
       this.sessions.add(ws);
       try {
@@ -200,7 +196,6 @@ export class GridDurableObject {
           this.adminSessions.add(ws);
         }
       } catch {
-        /* ignore attachment errors */
       }
     }
   }
@@ -211,8 +206,6 @@ export class GridDurableObject {
     await this.loadAdminUsers();
     await this.loadCurrentAnnouncement();
 
-    // Mark as initialized – we deliberately avoid loading the full 500x500 grid into memory
-    // to keep RAM usage minimal and allow the Durable Object to hibernate.
     this.initialized = true;
   }
 
@@ -371,23 +364,18 @@ export class GridDurableObject {
   }
 
   async canPlacePixel(user) {
-    // Allow non-authenticated users
     if (!user) return true;
 
     await this.initializeWhitelist();
 
-    // Admins can always place pixels
     if (this.isAdmin(user.id)) {
       return true;
     }
 
-    // If blacklist is disabled, everyone can place
     if (!this.whitelistEnabled) {
       return true;
     }
 
-    // If blacklist is enabled, check if user is blacklisted
-    // (Now "whitelist" acts as blacklist - if user is in the list, they're blocked)
     const isBlacklisted = await this.isWhitelisted(user.id);
     return !isBlacklisted;
   }
@@ -406,7 +394,6 @@ export class GridDurableObject {
       }
     }
 
-    // Push live update to dashboards
     this.broadcastActiveUsers();
   }
 
@@ -429,7 +416,6 @@ export class GridDurableObject {
       }
     }
 
-    // Push live update to dashboards
     this.broadcastActiveUsers();
   }
 
@@ -971,11 +957,9 @@ export class GridDurableObject {
                 chunkData = parsed;
               }
             } catch {
-              // ignore malformed
             }
           }
           if (!chunkData) {
-            // initialize blank chunk (50 rows of white)
             chunkData = Array(chunkSize)
               .fill(0)
               .map(() => Array(500).fill("#FFFFFF"));
@@ -1022,7 +1006,6 @@ export class GridDurableObject {
         const token = extractBearerToken(request);
         let user = null;
 
-        // Try to authenticate if token is provided
         if (token) {
           user = await validateDiscordToken(token, this.env);
           if (!user) {
@@ -1034,7 +1017,6 @@ export class GridDurableObject {
 
         }
 
-        // Check if user can place pixels (works for both authenticated and non-authenticated)
         const canPlace = await this.canPlacePixel(user);
         if (!canPlace) {
           await this.initializeWhitelist();
@@ -1074,7 +1056,6 @@ export class GridDurableObject {
           );
         }
 
-        // Rate limiting: non-admin users limited to 1 pixel every 2 seconds
         const requesterKey = user ? user.id : (request.headers.get("x-session-id") || request.headers.get("cf-connecting-ip") || "anonymous");
         const nowTs = Date.now();
         if (!this.isAdmin(requesterKey)) {
@@ -1085,7 +1066,6 @@ export class GridDurableObject {
         }
         this.lastPlacementByUser.set(requesterKey, nowTs);
 
-        // Persist pixel in KV by updating the chunk it belongs to
         const chunkIndex = Math.floor(y / 50);
         const rowInChunk = y % 50;
         const chunkKey = `chunk:${chunkIndex}`;
@@ -1132,7 +1112,6 @@ export class GridDurableObject {
           await this.sendDiscordWebhook(x, y, color, user);
         } catch (webhookError) {
           console.error("Discord webhook failed:", webhookError);
-          // Don't let webhook failure break pixel placement
         }
 
         if (user) {
@@ -1225,7 +1204,6 @@ export class GridDurableObject {
         const gridData = backupData.data;
         let updateCount = 0;
 
-        // Save full backup into chunk-level KV keys
         for (let chunkIndex = 0; chunkIndex < 10; chunkIndex++) {
           const start = chunkIndex * 50;
           const chunkRows = gridData.slice(start, start + 50);
@@ -1284,7 +1262,6 @@ export class GridDurableObject {
       }
 
       try {
-        // Clear all rows in KV by overwriting with blank rows
         const blankChunk = Array(50).fill(0).map(() => Array(500).fill("#FFFFFF"));
         const blankChunkStr = JSON.stringify(blankChunk);
         for (let chunkIndex = 0; chunkIndex < 10; chunkIndex++) {
@@ -1379,22 +1356,13 @@ export class GridDurableObject {
   }
 
   async handleWebSocket(webSocket) {
-    // Cloudflare WebSocket Hibernation API – this allows the DO to sleep while
-    // connections remain open (no GB-seconds while idle).
     this.state.acceptWebSocket(webSocket);
 
-    // Track the connection for admin-dash features.
     this.sessions.add(webSocket);
   }
 
-  /* ----------------------------------------------------------
-   * Hibernation-friendly WebSocket handlers – these are invoked
-   * by the runtime after the DO wakes up, so we cannot rely on
-   * addEventListener() inside handleWebSocket().
-   * -------------------------------------------------------- */
 
   async webSocketMessage(ws, message) {
-    // Ensure this connection is tracked even after hibernation.
     this.sessions.add(ws);
 
     try {
@@ -1411,7 +1379,6 @@ export class GridDurableObject {
           this.adminSessions.add(ws);
           try { ws.serializeAttachment?.({ isAdmin: true, user: user.username }); } catch { }
           this.logToConsole("info", `Admin console connected: ${user.username}`);
-          // Send initial snapshot without waiting for next throttle window
           this.broadcastActiveUsers(true);
         }
         return;
@@ -1422,16 +1389,15 @@ export class GridDurableObject {
         return;
       }
     } catch {
-      /* ignore malformed JSON */
     }
   }
 
-  async webSocketClose(ws /*, code, reason, wasClean */) {
+  async webSocketClose(ws) {
     this.sessions.delete(ws);
     this.adminSessions.delete(ws);
   }
 
-  async webSocketError(ws /*, error */) {
+  async webSocketError(ws) {
     this.sessions.delete(ws);
     this.adminSessions.delete(ws);
   }
@@ -1442,7 +1408,6 @@ export class GridDurableObject {
       try {
         ws.send(messageStr);
       } catch {
-        // ignore these basically
       }
     }
   }
@@ -1456,7 +1421,7 @@ export class GridDurableObject {
   broadcastActiveUsers(force = false) {
     const now = Date.now();
     if (!force && now - this.lastActiveUsersBroadcast < 5000) {
-      return; // Skip – broadcast too recent.
+      return;
     }
 
     this.lastActiveUsersBroadcast = now;
@@ -1469,8 +1434,6 @@ export class GridDurableObject {
 
     const messageStr = JSON.stringify(payload);
 
-    // Prefer sending to connected admin dashboards; if none are
-    // connected we still broadcast to all to ensure consistency.
     const targets = this.adminSessions.size > 0
       ? this.adminSessions
       : this.state.getWebSockets();
@@ -1479,7 +1442,6 @@ export class GridDurableObject {
       try {
         ws.send(messageStr);
       } catch {
-        // Ignore failed sockets; they will be cleaned up elsewhere.
       }
     }
   }
@@ -1509,7 +1471,6 @@ export class GridDurableObject {
       return;
     }
 
-    // Validate webhook URL
     try {
       new URL(this.env.DISCORD_WEBHOOK_URL);
     } catch (urlError) {
@@ -1549,7 +1510,7 @@ export class GridDurableObject {
       console.log("Discord webhook sent successfully");
     } catch (error) {
       console.error("Error in sendDiscordWebhook:", error);
-      throw error; // Re-throw to be caught by the outer try-catch
+      throw error;
     }
   }
 
@@ -1560,7 +1521,6 @@ export class GridDurableObject {
       return;
     }
 
-    // Validate webhook URL
     try {
       new URL(webhookUrl);
     } catch (urlError) {
@@ -1609,7 +1569,6 @@ export class GridDurableObject {
     }
   }
 
-  // group up spammed requests for 1 kv update
   scheduleChunkSave(chunkKey) {
     this.pendingChunkSaves.add(chunkKey);
     if (this.saveTimeout) return;
@@ -1626,7 +1585,7 @@ export class GridDurableObject {
           console.error("Batched KV PUT failed:", key, err);
         }
       }
-    }, 2000); // 2-second debounce window
+    }, 2000);
   }
 }
 

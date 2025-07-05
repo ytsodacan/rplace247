@@ -1,12 +1,14 @@
 <!doctype html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Neuro.Place - Backend Status</title>
     <link rel="stylesheet" href="static/css/tailwind.css" />
     <link rel="stylesheet" href="static/css/style.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round&display=block" rel="stylesheet" />
     <style>
         .status-indicator {
@@ -16,16 +18,32 @@
             display: inline-block;
             margin-right: 8px;
         }
-        .status-online { background-color: #10b981; }
-        .status-offline { background-color: #ef4444; }
-        .status-checking { 
-            background-color: #f59e0b; 
+
+        .status-online {
+            background-color: #10b981;
+        }
+
+        .status-offline {
+            background-color: #ef4444;
+        }
+
+        .status-checking {
+            background-color: #f59e0b;
             animation: pulse 2s infinite;
         }
+
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
         }
+
         .status-card {
             background: var(--bg-secondary);
             border: 1px solid var(--border);
@@ -33,11 +51,13 @@
             padding: 24px;
             margin-bottom: 16px;
         }
+
         .last-checked {
             font-size: 0.875rem;
             color: var(--text-secondary);
             margin-top: 8px;
         }
+
         .error-details {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
@@ -48,6 +68,7 @@
             font-size: 0.875rem;
             color: var(--text-secondary);
         }
+
         .btn-status {
             background: var(--accent);
             color: white;
@@ -61,13 +82,16 @@
             align-items: center;
             gap: 8px;
         }
+
         .btn-status:hover {
             background: var(--accent-hover);
         }
+
         .btn-status:disabled {
             opacity: 0.6;
             cursor: not-allowed;
         }
+
         .auto-refresh-info {
             background: var(--bg-tertiary);
             border: 1px solid var(--border);
@@ -96,30 +120,30 @@
                     <span class="status-indicator status-checking" id="statusIndicator"></span>
                     Backend Service Status
                 </h2>
-                
+
                 <div class="text-lg" id="statusText">Checking backend status...</div>
-                
+
                 <div class="last-checked" id="lastChecked">
                     Last checked: Never
                 </div>
-                
+
                 <div id="errorDetails" class="error-details" style="display: none;">
                     <strong>Error Details:</strong>
                     <div id="errorMessage"></div>
                 </div>
-                
+
                 <div class="mt-6 flex gap-4">
                     <button class="btn-status" id="checkNowBtn">
                         <span class="material-icons-round" style="font-size: 18px;">refresh</span>
                         Check Now
                     </button>
-                    
+
                     <button class="btn-status" id="retryConnectionBtn" style="display: none;">
                         <span class="material-icons-round" style="font-size: 18px;">wifi_find</span>
                         Try to Reconnect
                     </button>
                 </div>
-                
+
                 <div class="auto-refresh-info">
                     <div class="flex items-center justify-between">
                         <span>Auto-refresh: <span id="autoRefreshStatus">Enabled</span></span>
@@ -127,7 +151,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="status-card">
                 <h3 class="text-lg font-semibold mb-3">Service Endpoints</h3>
                 <div class="space-y-2">
@@ -145,7 +169,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div class="text-center mt-8">
                 <button class="btn-status" id="backToMainBtn">
                     <span class="material-icons-round" style="font-size: 18px;">arrow_back</span>
@@ -172,14 +196,14 @@
         const backToMainBtn = document.getElementById('backToMainBtn');
         const autoRefreshStatus = document.getElementById('autoRefreshStatus');
         const nextCheckCountdown = document.getElementById('nextCheckCountdown');
-        
+
         const gridStatus = document.getElementById('gridStatus');
         const wsStatus = document.getElementById('wsStatus');
         const apiStatus = document.getElementById('apiStatus');
 
         function updateStatusDisplay(isOnline, error = null, details = {}) {
             const now = new Date();
-            
+
             if (isOnline) {
                 statusIndicator.className = 'status-indicator status-online';
                 statusText.textContent = 'Backend is online and responding';
@@ -189,15 +213,15 @@
                 statusIndicator.className = 'status-indicator status-offline';
                 statusText.textContent = 'Backend is currently unavailable';
                 retryConnectionBtn.style.display = 'inline-flex';
-                
+
                 if (error) {
                     errorDetails.style.display = 'block';
                     errorMessage.textContent = error;
                 }
             }
-            
+
             lastChecked.textContent = `Last checked: ${now.toLocaleString()}`;
-            
+
             // Update individual service status
             updateServiceStatus('grid', details.grid || false);
             updateServiceStatus('ws', details.websocket || false);
@@ -213,7 +237,7 @@
             statusIndicator.className = 'status-indicator status-checking';
             statusText.textContent = 'Checking backend status...';
             errorDetails.style.display = 'none';
-            
+
             // Set all services to checking
             gridStatus.className = 'status-indicator status-checking';
             wsStatus.className = 'status-indicator status-checking';
@@ -223,13 +247,13 @@
         async function checkBackendStatus() {
             setCheckingStatus();
             checkNowBtn.disabled = true;
-            
+
             const results = {
                 grid: false,
                 websocket: false,
                 api: false
             };
-            
+
             let overallStatus = false;
             let errorMsg = null;
 
@@ -258,30 +282,30 @@
 
                 // Test WebSocket (simplified check)
                 try {
-                    const wsUrl = window.location.protocol === 'https:' 
+                    const wsUrl = window.location.protocol === 'https:'
                         ? `wss://${window.location.host}/ws`
                         : `ws://${window.location.host}/ws`;
-                    
+
                     const wsTest = new WebSocket(wsUrl);
-                    
+
                     const wsPromise = new Promise((resolve) => {
                         const timeout = setTimeout(() => {
                             wsTest.close();
                             resolve(false);
                         }, 3000);
-                        
+
                         wsTest.onopen = () => {
                             clearTimeout(timeout);
                             wsTest.close();
                             resolve(true);
                         };
-                        
+
                         wsTest.onerror = () => {
                             clearTimeout(timeout);
                             resolve(false);
                         };
                     });
-                    
+
                     results.websocket = await wsPromise;
                 } catch (e) {
                     console.log('WebSocket test failed:', e);
@@ -290,7 +314,7 @@
 
                 // Overall status: at least grid should work
                 overallStatus = results.grid;
-                
+
                 if (!overallStatus) {
                     errorMsg = 'Core backend services are not responding. The server may be down or experiencing issues.';
                 }
@@ -302,7 +326,7 @@
 
             updateStatusDisplay(overallStatus, errorMsg, results);
             checkNowBtn.disabled = false;
-            
+
             // Schedule next check
             scheduleNextCheck();
         }
@@ -310,11 +334,11 @@
         function scheduleNextCheck() {
             nextCheckTime = Date.now() + CHECK_INTERVAL;
             updateCountdown();
-            
+
             if (checkInterval) {
                 clearInterval(checkInterval);
             }
-            
+
             checkInterval = setTimeout(checkBackendStatus, CHECK_INTERVAL);
         }
 
@@ -322,12 +346,12 @@
             if (countdownInterval) {
                 clearInterval(countdownInterval);
             }
-            
+
             countdownInterval = setInterval(() => {
                 const remaining = Math.max(0, nextCheckTime - Date.now());
                 const minutes = Math.floor(remaining / 60000);
                 const seconds = Math.floor((remaining % 60000) / 1000);
-                
+
                 if (remaining > 0) {
                     nextCheckCountdown.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
                 } else {
@@ -356,4 +380,5 @@
         checkBackendStatus();
     </script>
 </body>
+
 </html>
