@@ -183,39 +183,19 @@ export class GridDurableObject {
     this.lastPixelUpdateTime = 0;
     this.sessionActivity = new Map();
     this.timeoutCheckInterval = null;
+    this.initialized = false;
+    this.chunkCache = new Map();
   }
 
   async initialize() {
-    if (this.grid) return;
+    if (this.initialized) return;
 
     await this.loadAdminUsers();
     await this.loadCurrentAnnouncement();
 
-    try {
-      const pixels = await this.state.storage.list({ prefix: "pixel:" });
-      const gridData = Array(500)
-        .fill(0)
-        .map(() => Array(500).fill("#FFFFFF"));
-
-      for (const [key, color] of pixels) {
-        const [, y, x] = key.split(":");
-        const yInt = parseInt(y, 10);
-        const xInt = parseInt(x, 10);
-        if (yInt >= 0 && yInt < 500 && xInt >= 0 && xInt < 500) {
-          gridData[yInt][xInt] = color;
-        }
-      }
-
-      this.grid = gridData;
-      console.log("Grid loaded with", pixels.size, "custom pixels");
-      this.logToConsole("info", `Grid loaded with ${pixels.size} custom pixels`);
-    } catch (error) {
-      console.error("Grid initialization error:", error);
-      this.grid = Array(500)
-        .fill(0)
-        .map(() => Array(500).fill("#FFFFFF"));
-      console.error("Grid initialization failed, using empty grid");
-    }
+    // Mark as initialized – we deliberately avoid loading the full 500x500 grid into memory
+    // to keep RAM usage minimal and allow the Durable Object to hibernate.
+    this.initialized = true;
   }
 
   async loadAdminUsers() {
@@ -453,7 +433,7 @@ export class GridDurableObject {
   }
 
   async fetch(request) {
-    if (!this.grid) {
+    if (!this.initialized) {
       await this.initialize();
     }
 
@@ -956,22 +936,42 @@ export class GridDurableObject {
           );
         }
 
-        const startRow = chunkIndex * chunkSize;
-        const endRow = Math.min(startRow + chunkSize, 500);
-        const chunkData = this.grid.slice(startRow, endRow);
+        const chunkKey = `chunk:${chunkIndex}`;
+        let chunkData = this.chunkCache.get(chunkKey);
+        if (!chunkData) {
+          const chunkStr = await this.env.PALETTE_KV.get(chunkKey);
+          if (chunkStr) {
+            try {
+              const parsed = JSON.parse(chunkStr);
+              if (Array.isArray(parsed) && parsed.length === chunkSize) {
+                chunkData = parsed;
+              }
+            } catch {
+              // ignore malformed
+            }
+          }
+          if (!chunkData) {
+            // initialize blank chunk (50 rows of white)
+            chunkData = Array(chunkSize)
+              .fill(0)
+              .map(() => Array(500).fill("#FFFFFF"));
+          }
+          this.chunkCache.set(chunkKey, chunkData);
+        }
 
         return new Response(
           JSON.stringify({
             chunk: chunkIndex,
             totalChunks,
-            startRow,
-            endRow,
+            startRow: chunkIndex * chunkSize,
+            endRow: Math.min((chunkIndex + 1) * chunkSize, 500),
             data: chunkData,
           }),
           {
             headers: {
               "Content-Type": "application/json",
               "Access-Control-Allow-Origin": "*",
+              "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
             },
           },
         );
@@ -1050,8 +1050,30 @@ export class GridDurableObject {
           );
         }
 
-        this.grid[y][x] = color;
-        await this.state.storage.put(`pixel:${y}:${x}`, color);
+        // Persist pixel in KV by updating the chunk it belongs to
+        const chunkIndex = Math.floor(y / 50);
+        const rowInChunk = y % 50;
+        const chunkKey = `chunk:${chunkIndex}`;
+
+        let chunkArr = this.chunkCache.get(chunkKey);
+        if (!chunkArr) {
+          const existingChunkStr = await this.env.PALETTE_KV.get(chunkKey);
+          if (existingChunkStr) {
+            try {
+              const parsed = JSON.parse(existingChunkStr);
+              if (Array.isArray(parsed) && parsed.length === 50) {
+                chunkArr = parsed;
+              }
+            } catch { }
+          }
+          if (!chunkArr) {
+            chunkArr = Array(50).fill(0).map(() => Array(500).fill("#FFFFFF"));
+          }
+        }
+
+        chunkArr[rowInChunk][x] = color;
+        this.chunkCache.set(chunkKey, chunkArr);
+        await this.env.PALETTE_KV.put(chunkKey, JSON.stringify(chunkArr));
 
         this.lastPixelUpdateTime = Date.now();
         await this.state.storage.put(
@@ -1165,28 +1187,17 @@ export class GridDurableObject {
           );
         }
 
-        this.grid = backupData.data;
-
-        const pixelUpdates = new Map();
+        const gridData = backupData.data;
         let updateCount = 0;
 
-        for (let y = 0; y < 500; y++) {
-          for (let x = 0; x < 500; x++) {
-            const color = this.grid[y][x];
-            if (color && /^#[0-9A-Fa-f]{6}$/i.test(color)) {
-              pixelUpdates.set(`pixel:${y}:${x}`, color);
-              updateCount++;
-            }
-          }
-        }
-
-        const existingPixels = await this.state.storage.list({
-          prefix: "pixel:",
-        });
-        await this.state.storage.delete(Array.from(existingPixels.keys()));
-
-        if (pixelUpdates.size > 0) {
-          await this.state.storage.put(pixelUpdates);
+        // Save full backup into chunk-level KV keys
+        for (let chunkIndex = 0; chunkIndex < 10; chunkIndex++) {
+          const start = chunkIndex * 50;
+          const chunkRows = gridData.slice(start, start + 50);
+          const chunkKey = `chunk:${chunkIndex}`;
+          this.chunkCache.set(chunkKey, chunkRows);
+          await this.env.PALETTE_KV.put(chunkKey, JSON.stringify(chunkRows));
+          updateCount += chunkRows.flat().filter((c) => c !== "#FFFFFF").length;
         }
 
         console.log(
@@ -1238,14 +1249,14 @@ export class GridDurableObject {
       }
 
       try {
-        this.grid = Array(500)
-          .fill(0)
-          .map(() => Array(500).fill("#FFFFFF"));
-
-        const existingPixels = await this.state.storage.list({
-          prefix: "pixel:",
-        });
-        await this.state.storage.delete(Array.from(existingPixels.keys()));
+        // Clear all rows in KV by overwriting with blank rows
+        const blankChunk = Array(50).fill(0).map(() => Array(500).fill("#FFFFFF"));
+        const blankChunkStr = JSON.stringify(blankChunk);
+        for (let chunkIndex = 0; chunkIndex < 10; chunkIndex++) {
+          const chunkKey = `chunk:${chunkIndex}`;
+          this.chunkCache.set(chunkKey, blankChunk);
+          await this.env.PALETTE_KV.put(chunkKey, blankChunkStr);
+        }
 
         console.log(
           `Grid cleared by admin user: ${user.username} (${user.id})`,

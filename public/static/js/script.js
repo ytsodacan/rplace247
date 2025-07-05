@@ -169,18 +169,18 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 5000);
-            
+
             const response = await fetch(`${BACKEND_URL}/grid`, {
                 method: 'GET',
                 signal: controller.signal
             });
-            
+
             clearTimeout(timeoutId);
-            
+
             if (!response.ok) {
                 throw new Error(`Backend responded with status: ${response.status}`);
             }
-            
+
             return true;
         } catch (error) {
             console.error("Backend health check failed:", error);
@@ -230,15 +230,14 @@ document.addEventListener("DOMContentLoaded", () => {
             return grid;
         } catch (error) {
             console.error("Error fetching grid:", error);
-            
-            // Check if backend is actually down or just temporary issue
+
             const isBackendUp = await checkBackendHealth();
             if (!isBackendUp) {
                 console.log("Backend appears to be down, redirecting to status page");
                 redirectToStatusPage();
                 return null;
             }
-            
+
             alert(
                 "Could not load the grid data. The backend may be experiencing temporary issues.",
             );
@@ -325,7 +324,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const errorData = await response.json();
                     errorMessage = errorData.message || response.statusText;
                 } catch {
-                    // Response is not JSON, use statusText
                     errorMessage = `Server error: ${response.statusText}`;
                 }
                 throw new Error(`Failed to place pixel: ${errorMessage}`);
@@ -517,7 +515,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 if (!document.getElementById("cooldownToggleContainer")) {
-                    // Check if user is admin and default to no cooldown
                     const adminIds = ["146797401720487936", "405184938045079552", "858231473761157170"];
                     const isAdmin = adminIds.includes(userData.id);
                     if (isAdmin) {
@@ -655,7 +652,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        // Only log actual pixel updates (when x and y are numbers)
         if (typeof x !== "number" || typeof y !== "number") {
             return;
         }
@@ -1100,7 +1096,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     const data = JSON.parse(event.data);
 
                     if (data.type === "pong") {
-                        // Handle pong response for ping
                         updateConnectionStatus(true);
                         return;
                     }
@@ -1213,7 +1208,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (pingInterval) {
             clearInterval(pingInterval);
         }
-        
+
         pingInterval = setInterval(() => {
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ type: "ping" }));
@@ -1415,8 +1410,7 @@ document.addEventListener("DOMContentLoaded", () => {
         liveViewCtx.imageSmoothingEnabled = false;
 
         grid = await getGrid();
-        
-        // If getGrid returns null, it means backend is down and we're redirecting
+
         if (grid === null) {
             return;
         }
@@ -1530,13 +1524,12 @@ document.addEventListener("DOMContentLoaded", () => {
         fallbackMode = true;
         console.log("Enabled fallback polling mode.");
 
-        // Check if backend is completely down
         const isBackendUp = await checkBackendHealth();
         if (!isBackendUp) {
             console.log("Backend appears to be completely down, redirecting to status page");
             setTimeout(() => {
                 redirectToStatusPage();
-            }, 2000); // Give a small delay to show the fallback message
+            }, 2000);
             return;
         }
 
@@ -1631,8 +1624,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         } catch (error) {
             console.error("Error polling for updates:", error);
-            
-            // If polling fails consistently, check if backend is completely down
+
             const isBackendUp = await checkBackendHealth();
             if (!isBackendUp) {
                 console.log("Backend appears to be down during polling, redirecting to status page");

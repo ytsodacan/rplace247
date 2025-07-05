@@ -232,12 +232,10 @@ class GridTender {
 	 * Check if user can place pixels
 	 */
 	canPlacePixel() {
-		// Allow non-authenticated users to place pixels
 		if (!this.isAuthenticated) {
 			return { allowed: true, reason: "Anonymous user allowed" };
 		}
 
-		// For authenticated users, check if they're blacklisted (if blacklist is enabled)
 		if (this.whitelistEnabled && this.isWhitelisted && !this.isAdmin) {
 			return { allowed: false, reason: "User is blacklisted" };
 		}
@@ -257,7 +255,6 @@ class GridTender {
 		}
 
 		try {
-			// Get session data from the main script if available
 			const sessionId = window.sessionId || `session_${Math.random().toString(36).substring(2, 11)}${Date.now().toString(36)}`;
 			const sessionStartTime = window.sessionStartTime || Date.now();
 			const placementCount = window.placementCount || 1;
@@ -274,7 +271,6 @@ class GridTender {
 				"X-Device-Type": this.detectDevice()
 			};
 
-			// Only add Authorization header if user is authenticated
 			if (this.userToken) {
 				headers.Authorization = `Bearer ${this.userToken}`;
 			}
@@ -309,7 +305,6 @@ class GridTender {
 					const result = await response.json();
 					errorMessage = result.message || response.statusText;
 				} catch {
-					// Response is not JSON, use statusText
 					errorMessage = `Server error: ${response.statusText}`;
 				}
 				this.showMessage(`Failed to place pixel: ${errorMessage}`, "error");
