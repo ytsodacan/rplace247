@@ -185,6 +185,10 @@ export class GridDurableObject {
     this.chunkCache = new Map();
     // Timestamp of the last active-users broadcast (ms)
     this.lastActiveUsersBroadcast = 0;
+    // Rate-limiting & KV batching state
+    this.pendingChunkSaves = new Set();
+    this.saveTimeout = null;
+    this.lastPlacementByUser = new Map();
 
     // After creating the sets, restore any sockets that already exist (the DO may
     // have just been restarted after hibernation).
@@ -1070,6 +1074,17 @@ export class GridDurableObject {
           );
         }
 
+        // Rate limiting: non-admin users limited to 1 pixel every 2 seconds
+        const requesterKey = user ? user.id : (request.headers.get("x-session-id") || request.headers.get("cf-connecting-ip") || "anonymous");
+        const nowTs = Date.now();
+        if (!this.isAdmin(requesterKey)) {
+          const lastTs = this.lastPlacementByUser.get(requesterKey) || 0;
+          if (nowTs - lastTs < 2000) {
+            return new Response(JSON.stringify({ message: "Rate limit exceeded: please wait 2 seconds between placements." }), { status: 429, headers: corsHeaders });
+          }
+        }
+        this.lastPlacementByUser.set(requesterKey, nowTs);
+
         // Persist pixel in KV by updating the chunk it belongs to
         const chunkIndex = Math.floor(y / 50);
         const rowInChunk = y % 50;
@@ -1093,7 +1108,7 @@ export class GridDurableObject {
 
         chunkArr[rowInChunk][x] = color;
         this.chunkCache.set(chunkKey, chunkArr);
-        await this.env.PALETTE_KV.put(chunkKey, JSON.stringify(chunkArr));
+        this.scheduleChunkSave(chunkKey);
 
         this.lastPixelUpdateTime = Date.now();
         await this.state.storage.put(
@@ -1592,6 +1607,26 @@ export class GridDurableObject {
     } catch (error) {
       console.error("Failed to send deployment webhook:", error);
     }
+  }
+
+  // group up spammed requests for 1 kv update
+  scheduleChunkSave(chunkKey) {
+    this.pendingChunkSaves.add(chunkKey);
+    if (this.saveTimeout) return;
+    this.saveTimeout = setTimeout(async () => {
+      const chunks = Array.from(this.pendingChunkSaves);
+      this.pendingChunkSaves.clear();
+      this.saveTimeout = null;
+      for (const key of chunks) {
+        const data = this.chunkCache.get(key);
+        if (!data) continue;
+        try {
+          await this.env.PALETTE_KV.put(key, JSON.stringify(data));
+        } catch (err) {
+          console.error("Batched KV PUT failed:", key, err);
+        }
+      }
+    }, 2000); // 2-second debounce window
   }
 }
 
