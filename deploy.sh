@@ -1,5 +1,5 @@
 #!/bin/bash
-
+# usage: ./deploy.sh [prod|dev] (surely nobody would forget, right? Glueless)
 set -e
 # fails if secrets aren't in env
 if [ -z "$PROD_PALETTE_KV_ID" ]; then
@@ -14,10 +14,13 @@ if [ -z "$DEV_PALETTE_KV_ID" ]; then
   echo "Error: Environment variable DEV_PALETTE_KV_ID is not set." >&2
   exit 1
 fi
-# --- End Checks ---
+if [ -z "$SECRETS_STORE_ID" ]; then
+  echo "Error: Environment variable SECRETS_STORE_ID is not set." >&2
+  exit 1
+fi
 
-# defaults to prod since that seems dumb enough for me to do
-ENVIRONMENT="prod"
+# defaults to dev so i dont accidentally deploy prod
+ENVIRONMENT="dev"
 if [ -n "$1" ]; then
   ENVIRONMENT=$1
 fi
@@ -29,6 +32,7 @@ sed \
   -e "s|__PALETTE_KV_ID__|${PROD_PALETTE_KV_ID}|g" \
   -e "s|__PALETTE_KV_PREVIEW_ID__|${PROD_PALETTE_KV_PREVIEW_ID}|g" \
   -e "s|__DEV_PALETTE_KV_ID__|${DEV_PALETTE_KV_ID}|g" \
+  -e "s|__SECRETS_STORE_ID__|${SECRETS_STORE_ID}|g" \
   wrangler.toml.template > wrangler.toml
 
 echo "Generated wrangler.toml from template."

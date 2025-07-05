@@ -5,6 +5,7 @@
  * when the place-worker is successfully deployed.
  */
 
+
 const environment = process.argv[2] || "production";
 const workerName = environment === "dev" ? "place-worker-dev" : "place-worker";
 const baseUrl =

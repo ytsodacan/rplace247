@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.5] - 2025-07-04 (cont.)
+
+### Added (July 4, 2025 continued)
+
+- **Timeout for websockets**: Bandaid for the current issue of the worker needing the entire grid loaded in memory and then being kept alive indefinitely
+- **Connection status indicator outside of pixel log**: Added a connection status indicator out of the log itself to prevent cluttering the log
+
 ## [0.1.4] - 2025-07-04
 
 ### Added (July 4, 2025)

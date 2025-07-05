@@ -9,3 +9,4 @@ wrangler/
 analytics-queries.sql
 .env.*
 wrangler.toml
+secret_deploy.sh

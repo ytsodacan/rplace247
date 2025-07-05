@@ -40,6 +40,7 @@ jobs:
           PROD_PALETTE_KV_ID: ${{ secrets.PROD_PALETTE_KV_ID }}
           PROD_PALETTE_KV_PREVIEW_ID: ${{ secrets.PROD_PALETTE_KV_PREVIEW_ID }}
           DEV_PALETTE_KV_ID: ${{ secrets.DEV_PALETTE_KV_ID }}
+          SECRETS_STORE_ID: ${{ secrets.SECRETS_STORE_ID }}
 
       - name: Run post-deploy script
         run: node scripts/post-deploy.js
