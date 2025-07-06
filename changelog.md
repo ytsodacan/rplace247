@@ -47,13 +47,13 @@
 - SEO bits, privacy policy, etc.
 - moved conn status icon out of chat
 
-## 0.1.4 – 2025-07-04
+## 0.1.4 – 2025-07-03
 
 - status page + backend pinger + auto-redirect
 - anon pixel bug squashed
 - service indicators (grid/ws/api)
 
-## 0.1.3 – 2025-07-03
+## 0.1.3 – 2025-07-02
 
 - grid corruption auto-recovery + backups in KV
 - admin console & live logs

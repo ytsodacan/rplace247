@@ -4,7 +4,7 @@ Collaborative pixel placement app for the Neurosama community
 
 ## Most recent Changelog
 
-### 0.1.7 – 2025-07-05
+### ~~0.1.7.0~~ | ~~0.1.7.1~~ | 0.1.7.2 – 2025-07-05 round 4
 
 ## Security 2
 
@@ -16,7 +16,7 @@ Authenticating the authentication
 
 no LEAKED items
 
-### 0.1.6 – 2025-07-05
+### 0.1.6 – 2025-07-05 round 3
 
 ## How do I into Security
 
@@ -25,7 +25,7 @@ no LEAKED items
 - Surely it'll load now
 - both not loading and loading too much were a problem so all that's left is just enough
 
-### 0.1.6 – 2025-07-05
+### 0.1.6 – 2025-07-04 round 2
 
 pixel throttle (2 s) + KV update batching
 
