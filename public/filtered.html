@@ -10,7 +10,8 @@
         body {
             margin: 0;
             padding: 0;
-            background: #000;
+            background: #000 url('/static/img/filtered.png') no-repeat center center;
+            background-size: cover;
             color: #fff;
             font-family: Arial, sans-serif;
             height: 100vh;
@@ -19,6 +20,23 @@
             justify-content: center;
             align-items: center;
             overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .message-container {
+            position: relative;
+            z-index: 2;
         }
 
         .filtered-text {
