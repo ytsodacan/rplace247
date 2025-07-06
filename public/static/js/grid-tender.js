@@ -138,6 +138,11 @@ class GridTender {
 		this.isAdmin = false;
 		localStorage.removeItem("discord_token");
 		localStorage.removeItem("user_data");
+		
+		if (this.adminPanelElement) {
+			this.adminPanelElement.classList.add("hidden");
+			this.adminPanelCollapsed = true;
+		}
 	}
 
 	/**

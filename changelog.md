@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.7.3 – 2025-07-06
+
+- grid refresh now broadcasts to all connected users -working on removing requirement for manual refresh when this is done
+- user profile picture properly reverts to default on logout
+- settings cleared on logout for security
+
 ## 0.1.7.2 – 2025-07-06
 
 - admin dashboard loading fix (for real this time)

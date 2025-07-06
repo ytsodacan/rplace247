@@ -488,6 +488,11 @@ document.addEventListener("DOMContentLoaded", () => {
         localStorage.removeItem("discord_token");
         localStorage.removeItem("user_data");
         updateUserInterface();
+        
+        if (window.gridTender) {
+            window.gridTender.clearAuthState();
+            window.gridTender.updateUI();
+        }
     }
 
     function updateUserInterface() {
@@ -554,6 +559,11 @@ document.addEventListener("DOMContentLoaded", () => {
             if (loginBtn) loginBtn.style.display = "inline-block";
             if (logoutBtn) logoutBtn.style.display = "none";
             if (userInfo) userInfo.style.display = "none";
+
+            const avatarEl = document.getElementById("userAvatar");
+            if (avatarEl) {
+                avatarEl.src = "/static/img/user.png";
+            }
 
             const toggleContainer = document.getElementById(
                 "cooldownToggleContainer",
@@ -1086,7 +1096,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
             };
 
-            socket.onmessage = (event) => {
+            socket.onmessage = async (event) => {
                 try {
                     const data = JSON.parse(event.data);
 
@@ -1140,6 +1150,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     } else if (data.type === "console_log") {
                         if (window.adminConsole) {
                             window.adminConsole.addLogEntry(data);
+                        }
+                    } else if (data.type === "grid-refreshed") {
+                        console.log("Grid refreshed, reloading grid data...");
+                        await loadInitialGrid();
+                        if (window.gridTender) {
+                            window.gridTender.showToast("Grid has been refreshed", "info");
                         }
                     }
                 } catch (error) {
