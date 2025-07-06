@@ -370,10 +370,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         ctx.save();
 
-        const intOffsetX = Math.round(offsetX);
-        const intOffsetY = Math.round(offsetY);
-
-        ctx.translate(intOffsetX, intOffsetY);
+        // Use exact offsets for precise pixel alignment
+        ctx.translate(offsetX, offsetY);
         ctx.scale(scale, scale);
 
         ctx.drawImage(offscreenCanvas, 0, 0);
@@ -389,10 +387,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (selectedPixel.x !== null && selectedPixel.y !== null) {
             highlightCtx.save();
 
-            const intOffsetX = Math.round(offsetX);
-            const intOffsetY = Math.round(offsetY);
-
-            highlightCtx.translate(intOffsetX, intOffsetY);
+            // Use exact offsets to match the main canvas transformation
+            highlightCtx.translate(offsetX, offsetY);
             highlightCtx.scale(scale, scale);
             highlightCtx.strokeStyle = "var(--accent, orange)";
             highlightCtx.lineWidth = 3 / scale;
@@ -708,15 +704,15 @@ document.addEventListener("DOMContentLoaded", () => {
     function getGridCoordsFromScreen(clientX, clientY) {
         const rect = canvas.getBoundingClientRect();
 
+        // Use exact canvas coordinates without rounding
         const canvasX = clientX - rect.left;
         const canvasY = clientY - rect.top;
 
-        const intOffsetX = Math.round(offsetX);
-        const intOffsetY = Math.round(offsetY);
+        // Use exact offsets to match the drawing transformation
+        const worldX = (canvasX - offsetX) / scale;
+        const worldY = (canvasY - offsetY) / scale;
 
-        const worldX = (canvasX - intOffsetX) / scale;
-        const worldY = (canvasY - intOffsetY) / scale;
-
+        // Convert to grid coordinates with proper rounding for pixel center alignment
         const gridX = Math.floor(worldX / PIXEL_SIZE);
         const gridY = Math.floor(worldY / PIXEL_SIZE);
 
@@ -839,9 +835,6 @@ document.addEventListener("DOMContentLoaded", () => {
             offsetX += dx;
             offsetY += dy;
 
-            offsetX = Math.round(offsetX);
-            offsetY = Math.round(offsetY);
-
             lastTouchX = event.touches[0].clientX;
             lastTouchY = event.touches[0].clientY;
 
@@ -868,9 +861,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             offsetX = mouseCanvasX - mouseWorldX * scale;
             offsetY = mouseCanvasY - mouseWorldY * scale;
-
-            offsetX = Math.round(offsetX);
-            offsetY = Math.round(offsetY);
 
             initialPinchDistance = currentPinchDistance;
             drawGrid();
@@ -933,9 +923,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         offsetX = mouseCanvasX - mouseWorldX * scale;
         offsetY = mouseCanvasY - mouseWorldY * scale;
-
-        offsetX = Math.round(offsetX);
-        offsetY = Math.round(offsetY);
 
         drawGrid();
     }
@@ -1498,9 +1485,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
         offsetX = (canvas.width - gridPixelWidth * scale) / 2;
         offsetY = (canvas.height - gridPixelHeight * scale) / 2;
-
-        offsetX = Math.round(offsetX);
-        offsetY = Math.round(offsetY);
 
         ctx.imageSmoothingEnabled = false;
 
