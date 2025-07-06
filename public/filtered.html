@@ -39,6 +39,24 @@
             z-index: 2;
         }
 
+        .credit {
+            position: fixed;
+            bottom: 10px;
+            right: 15px;
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            z-index: 3;
+        }
+
+        .credit a {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+        }
+
+        .credit a:hover {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .filtered-text {
             font-size: 3rem;
             font-weight: bold;
@@ -87,11 +105,20 @@
             border: none;
             border-radius: 10px;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
             margin: 0 1rem;
             transition: transform 0.2s;
             font-size: 1.1rem;
             font-weight: 500;
+        }
+
+        .btn img {
+            width: 1.2em;
+            height: 1.2em;
+            object-fit: contain;
         }
 
         .btn:hover {
@@ -121,7 +148,10 @@
             }
 
             .btn {
-                display: block;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.5rem;
                 margin: 0.5rem auto;
                 width: 200px;
             }
@@ -141,9 +171,14 @@
         <div class="countdown" id="countdown">10</div>
 
         <div class="links" id="links">
-            <a href="/" class="btn">🏠 Homepage</a>
-            <a href="/status.html" class="btn btn-secondary">📊 Status Page</a>
+            <a href="/" class="btn"><img src="/static/img/neuroHypers-2x.webp" alt="Home Homepage">Go Home</a>
+            <a href="/status.html" class="btn btn-secondary"><img src="static/img/hiyori-2x.webp"
+                    alt="Status Page">Status Page</a>
         </div>
+    </div>
+
+    <div class="credit">
+        original art by <a href="https://www.youtube.com/@kleffff" target="_blank">klef</a>
     </div>
 
     <script>
