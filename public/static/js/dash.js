@@ -36,16 +36,11 @@ async function init() {
         startSanityCheck();
         fetchGridUpdateStatus();
         renderPixelLog(pixelLogEntries);
-        
+
         console.log('Dashboard initialization completed successfully');
     } catch (error) {
         console.error('Dashboard initialization failed:', error);
         redirectToLogin();
-    } finally {
-        // Always clear the loading timeout, regardless of success or failure
-        if (window.adminScriptLoaded) {
-            window.adminScriptLoaded();
-        }
     }
 }
 
@@ -107,7 +102,6 @@ function redirectToLogin() {
 }
 
 function showDashboard() {
-    const loadingScreen = document.getElementById('authLoadingScreen');
     const dashboardContainer = document.getElementById('dashboardContainer');
 
     // Load admin content dynamically after successful auth
@@ -124,11 +118,7 @@ function showDashboard() {
     // Re-initialize theme after content is loaded
     initTheme();
 
-    if (loadingScreen) {
-        loadingScreen.style.display = 'none';
-    }
     if (dashboardContainer) {
-        dashboardContainer.style.display = 'block';
         dashboardContainer.classList.add('loaded'); // Make content visible
     }
 }
