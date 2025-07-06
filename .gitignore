@@ -14,4 +14,3 @@ wrangler.toml
 secret_deploy.sh
 *.pre
 yarn.lock
-tools/
