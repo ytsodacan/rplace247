@@ -36,9 +36,16 @@ async function init() {
         startSanityCheck();
         fetchGridUpdateStatus();
         renderPixelLog(pixelLogEntries);
+        
+        console.log('Dashboard initialization completed successfully');
     } catch (error) {
         console.error('Dashboard initialization failed:', error);
         redirectToLogin();
+    } finally {
+        // Always clear the loading timeout, regardless of success or failure
+        if (window.adminScriptLoaded) {
+            window.adminScriptLoaded();
+        }
     }
 }
 

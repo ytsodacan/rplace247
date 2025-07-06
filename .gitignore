@@ -6,6 +6,7 @@ node_modules
 wrangler/
 .dev*
 *.mdc
+scratchpad.md
 .wrangler/
 analytics-queries.sql
 .env.*

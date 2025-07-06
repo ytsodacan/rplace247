@@ -8,7 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round&display=block" rel="stylesheet" />
     <link rel="stylesheet" href="/static/css/style.css">
-    <link rel="stylesheet" href="/static/css/dash.css">
+    <link rel="stylesheet" href="/static/css/dash.css" id="adminCSS">
 </head>
 
 <body>
@@ -25,7 +25,84 @@
         <!-- Admin content will be loaded here after successful initialization -->
     </div>
 
-    <script src="/static/js/dash.js" type="module"></script>
+    <script>
+        // Load admin assets with authentication token
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token') || localStorage.getItem('discord_token');
+
+        // Set a timeout to hide loading screen if admin script doesn't load
+        const loadingTimeout = setTimeout(() => {
+            document.getElementById('authLoadingScreen').style.display = 'none';
+            document.getElementById('dashboardContainer').style.display = 'block';
+            document.getElementById('dashboardContainer').innerHTML = `
+                <div class="min-h-screen bg-gray-900 text-white p-8">
+                    <div class="max-w-4xl mx-auto">
+                        <h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
+                        <div class="bg-red-800 border border-red-600 rounded-lg p-4 mb-6">
+                            <h2 class="text-xl font-semibold mb-2">Loading Error</h2>
+                            <p>The admin dashboard failed to load properly. This could be due to:</p>
+                            <ul class="list-disc list-inside mt-2 space-y-1">
+                                <li>Missing admin JavaScript file</li>
+                                <li>Authentication token issues</li>
+                                <li>Network connectivity problems</li>
+                            </ul>
+                        </div>
+                        <div class="bg-gray-800 rounded-lg p-4">
+                            <h3 class="text-lg font-semibold mb-2">Troubleshooting</h3>
+                            <p>Try refreshing the page or contact the administrator if the problem persists.</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }, 10000); // 10 second timeout
+
+        if (token) {
+            // Dynamically load the admin CSS with token
+            const adminCSS = document.getElementById('adminCSS');
+            adminCSS.href = `/static/css/dash.css?token=${encodeURIComponent(token)}`;
+
+            // Set up the callback before loading the script
+            window.adminScriptLoaded = () => {
+                console.log('Admin script loaded successfully');
+                clearTimeout(loadingTimeout);
+            };
+
+            // Dynamically load the admin JS with token
+            const adminJS = document.createElement('script');
+            adminJS.src = `/static/js/dash.js?token=${encodeURIComponent(token)}`;
+            adminJS.type = 'module';
+
+            // Add success handler for script loading
+            adminJS.onload = () => {
+                console.log('Admin script file loaded');
+                // The script will call adminScriptLoaded() when it's fully initialized
+            };
+
+            // Add error handling for script loading
+            adminJS.onerror = () => {
+                console.error('Failed to load admin script');
+                clearTimeout(loadingTimeout);
+                document.getElementById('authLoadingScreen').style.display = 'none';
+                document.getElementById('dashboardContainer').style.display = 'block';
+                document.getElementById('dashboardContainer').innerHTML = `
+                    <div class="min-h-screen bg-gray-900 text-white p-8">
+                        <div class="max-w-4xl mx-auto">
+                            <h1 class="text-3xl font-bold mb-6">Admin Dashboard</h1>
+                            <div class="bg-red-800 border border-red-600 rounded-lg p-4">
+                                <h2 class="text-xl font-semibold mb-2">Script Loading Failed</h2>
+                                <p>Unable to load the admin dashboard JavaScript component. Please check your permissions and try again.</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            document.body.appendChild(adminJS);
+        } else {
+            clearTimeout(loadingTimeout);
+            window.location.href = '/filtered.html';
+        }
+    </script>
 </body>
 
 </html>

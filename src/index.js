@@ -199,6 +199,57 @@ app.get("/dash.html", async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
+// Protect admin static assets - require authentication for admin JS/CSS files
+app.get("/static/js/dash.js", async (c) => {
+  const token = extractBearerToken(c.req) || c.req.query('token');
+
+  if (!token) {
+    return c.text('Unauthorized', 401);
+  }
+
+  // Validate the token
+  const user = await validateDiscordToken(token, c.env);
+  if (!user) {
+    return c.text('Unauthorized', 401);
+  }
+
+  // Check admin privileges
+  const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
+  const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
+
+  if (!adminIds.includes(user.id)) {
+    return c.text('Forbidden', 403);
+  }
+
+  // User is authenticated and has admin privileges - serve the JS file
+  return c.env.ASSETS.fetch(c.req.raw);
+});
+
+app.get("/static/css/dash.css", async (c) => {
+  const token = extractBearerToken(c.req) || c.req.query('token');
+
+  if (!token) {
+    return c.text('Unauthorized', 401);
+  }
+
+  // Validate the token
+  const user = await validateDiscordToken(token, c.env);
+  if (!user) {
+    return c.text('Unauthorized', 401);
+  }
+
+  // Check admin privileges
+  const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
+  const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
+
+  if (!adminIds.includes(user.id)) {
+    return c.text('Forbidden', 403);
+  }
+
+  // User is authenticated and has admin privileges - serve the CSS file
+  return c.env.ASSETS.fetch(c.req.raw);
+});
+
 app.get("*", async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });

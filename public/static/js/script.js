@@ -233,8 +233,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const isBackendUp = await checkBackendHealth();
             if (!isBackendUp) {
-                console.log("Backend appears to be down, redirecting to status page");
-                redirectToStatusPage();
+                console.log("Backend appears to be down, showing connection options");
+                showBackendDownModal();
                 return null;
             }
 
@@ -1292,6 +1292,66 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function showBackendDownModal() {
+        let modal = document.getElementById("backendDownModal");
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = "backendDownModal";
+            modal.className = "modal-overlay";
+            modal.style.zIndex = "10002";
+            modal.innerHTML = `
+                <div class="settings-window" style="max-width: 450px; text-align: center;">
+                    <h2 class="mb-4 text-xl font-bold">Backend Connection Lost</h2>
+                    <p class="mb-6 text-gray-600">The backend server appears to be unavailable. You can try reconnecting or visit the status page for more information.</p>
+                    <div class="flex gap-3 justify-center">
+                        <button id="modalTryReconnectBtn" class="btn btn-primary">
+                            <span class="material-icons-round" style="font-size: 1rem;">refresh</span>
+                            Try Reconnect
+                        </button>
+                        <button id="modalStatusPageBtn" class="btn btn-secondary">
+                            <span class="material-icons-round" style="font-size: 1rem;">info</span>
+                            Status Page
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            const reconnectBtn = modal.querySelector("#modalTryReconnectBtn");
+            const statusPageBtn = modal.querySelector("#modalStatusPageBtn");
+            
+            reconnectBtn.addEventListener("click", () => {
+                hideBackendDownModal();
+                // Reset connection attempts and try again
+                if (socket) {
+                    socket.close();
+                }
+                reconnectAttempts = 0;
+                fallbackMode = false;
+                if (fallbackPollingInterval) {
+                    clearInterval(fallbackPollingInterval);
+                    fallbackPollingInterval = null;
+                }
+                connectWebSocket();
+                getGrid(); // Try to reload the grid
+            });
+            
+            statusPageBtn.addEventListener("click", () => {
+                redirectToStatusPage();
+            });
+        }
+        modal.classList.add("active");
+        document.body.style.overflow = "hidden";
+    }
+
+    function hideBackendDownModal() {
+        const modal = document.getElementById("backendDownModal");
+        if (modal) {
+            modal.classList.remove("active");
+            document.body.style.overflow = "";
+        }
+    }
+
     function isCooldownActive() {
         if (!enforceCooldown) return false;
         return Date.now() - lastPixelTime < COOLDOWN_DURATION_MS;
@@ -1536,10 +1596,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const isBackendUp = await checkBackendHealth();
         if (!isBackendUp) {
-            console.log("Backend appears to be completely down, redirecting to status page");
+            console.log("Backend appears to be completely down, showing connection options");
             setTimeout(() => {
-                redirectToStatusPage();
-            }, 2000);
+                showBackendDownModal();
+            }, 10000); // Wait 10 seconds before showing modal
             return;
         }
 
@@ -1640,8 +1700,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const isBackendUp = await checkBackendHealth();
             if (!isBackendUp) {
-                console.log("Backend appears to be down during polling, redirecting to status page");
-                redirectToStatusPage();
+                console.log("Backend appears to be down during polling, showing connection options");
+                showBackendDownModal();
             }
         }
     }
