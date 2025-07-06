@@ -132,13 +132,13 @@
             <div class="relative flex items-center justify-between">
                 <h1 class="text-center flex-1">Neuro.Place - Backend Status</h1>
                 <div class="flex items-center gap-4">
-                    <!-- Theme Toggle Button -->
                     <button id="themeToggleBtn" class="btn-icon" title="Toggle Dark Mode">
                         <span class="material-icons-round">dark_mode</span>
                     </button>
                     <div class="auth-status-indicator" id="authStatusIndicator" style="display: none;">
                         <div class="flex items-center gap-2">
-                            <span class="material-icons-round text-green-500" style="font-size: 18px;">account_circle</span>
+                            <span class="material-icons-round text-green-500"
+                                style="font-size: 18px;">account_circle</span>
                             <span id="authStatusText" class="text-sm">Loading...</span>
                         </div>
                     </div>
@@ -149,7 +149,6 @@
 
     <main class="flex-1 container mx-auto px-6 py-8">
         <div class="max-w-2xl mx-auto">
-            <!-- Admin Message Box -->
             <div class="admin-message-box" id="adminMessageBox" style="display: none;">
                 <div class="admin-message-header">
                     <span class="admin-message-icon">📢</span>
@@ -224,7 +223,7 @@
 
     <script>
         const BACKEND_URL = `${window.location.origin}`;
-        const CHECK_INTERVAL = 3 * 60 * 1000; // 3 minutes
+        const CHECK_INTERVAL = 3 * 60 * 1000;
         let checkInterval = null;
         let countdownInterval = null;
         let nextCheckTime = 0;
@@ -243,7 +242,7 @@
         const gridStatus = document.getElementById('gridStatus');
         const wsStatus = document.getElementById('wsStatus');
         const apiStatus = document.getElementById('apiStatus');
-        
+
         const adminMessageBox = document.getElementById('adminMessageBox');
         const adminMessageContent = document.getElementById('adminMessageContent');
 
@@ -268,7 +267,6 @@
 
             lastChecked.textContent = `Last checked: ${now.toLocaleString()}`;
 
-            // Update individual service status
             updateServiceStatus('grid', details.grid || false);
             updateServiceStatus('ws', details.websocket || false);
             updateServiceStatus('api', details.api || false);
@@ -284,7 +282,6 @@
             statusText.textContent = 'Checking backend status...';
             errorDetails.style.display = 'none';
 
-            // Set all services to checking
             gridStatus.className = 'status-indicator status-checking';
             wsStatus.className = 'status-indicator status-checking';
             apiStatus.className = 'status-indicator status-checking';
@@ -325,7 +322,6 @@
             let errorMsg = null;
 
             try {
-                // Test grid endpoint
                 try {
                     const gridResponse = await fetch(`${BACKEND_URL}/grid`, {
                         method: 'GET',
@@ -336,7 +332,6 @@
                     console.log('Grid endpoint failed:', e);
                 }
 
-                // Test API endpoint
                 try {
                     const apiResponse = await fetch(`${BACKEND_URL}/api/active-users`, {
                         method: 'GET',
@@ -347,7 +342,6 @@
                     console.log('API endpoint failed:', e);
                 }
 
-                // Test WebSocket (simplified check)
                 try {
                     const wsUrl = window.location.protocol === 'https:'
                         ? `wss://${window.location.host}/ws`
@@ -379,7 +373,6 @@
                     results.websocket = false;
                 }
 
-                // Overall status: at least grid should work
                 overallStatus = results.grid;
 
                 if (!overallStatus) {
@@ -394,7 +387,6 @@
             updateStatusDisplay(overallStatus, errorMsg, results);
             checkNowBtn.disabled = false;
 
-            // Schedule next check
             scheduleNextCheck();
         }
 
@@ -428,7 +420,6 @@
         }
 
         function tryReconnect() {
-            // Try to go back to main site
             window.location.href = '/';
         }
 
@@ -437,7 +428,7 @@
             const userData = localStorage.getItem('user_data');
             const authIndicator = document.getElementById('authStatusIndicator');
             const authText = document.getElementById('authStatusText');
-            
+
             if (token && userData) {
                 try {
                     const user = JSON.parse(userData);
@@ -452,7 +443,6 @@
             }
         }
 
-        // Event listeners
         checkNowBtn.addEventListener('click', () => {
             if (checkInterval) {
                 clearTimeout(checkInterval);
@@ -463,15 +453,12 @@
         retryConnectionBtn.addEventListener('click', tryReconnect);
         backToMainBtn.addEventListener('click', tryReconnect);
 
-        // Auth status check
         checkAuthStatus();
 
-        // Initial check
         checkBackendStatus();
 
-        // Theme toggle functionality
         const themeToggleBtn = document.getElementById('themeToggleBtn');
-        
+
         function toggleDark() {
             console.log("Toggle dark mode called");
             document.documentElement.classList.toggle("dark");
@@ -518,9 +505,7 @@
             }
         }
 
-        // Initialize theme on page load
         document.addEventListener("DOMContentLoaded", () => {
-            // Early theme toggle setup
             const earlyThemeToggleBtn = document.getElementById("themeToggleBtn");
             if (earlyThemeToggleBtn) {
                 console.log("Found theme toggle button early");
@@ -533,9 +518,9 @@
             } else {
                 console.log("Theme toggle button not found early");
             }
-            
+
             initTheme();
-            
+
             if (themeToggleBtn) {
                 themeToggleBtn.addEventListener("click", toggleDark);
             }

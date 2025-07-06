@@ -635,7 +635,6 @@ document.addEventListener("DOMContentLoaded", () => {
         activeUsersList.innerHTML = usersHTML;
     }
 
-    // Polls /api/active-users every 5 s. Used only when in fallback mode.
     function startActiveUsersPolling() {
         if (activeUsersInterval) {
             clearInterval(activeUsersInterval);
@@ -1319,10 +1318,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const reconnectBtn = modal.querySelector("#modalTryReconnectBtn");
             const statusPageBtn = modal.querySelector("#modalStatusPageBtn");
-            
+
             reconnectBtn.addEventListener("click", () => {
                 hideBackendDownModal();
-                // Reset connection attempts and try again
                 if (socket) {
                     socket.close();
                 }
@@ -1333,9 +1331,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     fallbackPollingInterval = null;
                 }
                 connectWebSocket();
-                getGrid(); // Try to reload the grid
+                getGrid();
             });
-            
+
             statusPageBtn.addEventListener("click", () => {
                 redirectToStatusPage();
             });
@@ -1599,7 +1597,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.log("Backend appears to be completely down, showing connection options");
             setTimeout(() => {
                 showBackendDownModal();
-            }, 10000); // Wait 10 seconds before showing modal
+            }, 10000);
             return;
         }
 
@@ -1607,7 +1605,6 @@ document.addEventListener("DOMContentLoaded", () => {
             fallbackPollingInterval = setInterval(pollForUpdates, FALLBACK_POLL_INTERVAL);
         }
 
-        // Start active-users polling in fallback mode.
         startActiveUsersPolling();
 
         reconnectButton.style.display = "none";

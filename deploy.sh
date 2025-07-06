@@ -1,7 +1,5 @@
 #!/bin/bash
-# usage: ./deploy.sh [prod|dev] (surely nobody would forget, right? Glueless)
 set -e
-# fails if secrets aren't in env
 if [ -z "$PROD_PALETTE_KV_ID" ]; then
   echo "Error: Environment variable PROD_PALETTE_KV_ID is not set." >&2
   exit 1
@@ -19,7 +17,6 @@ if [ -z "$SECRETS_STORE_ID" ]; then
   exit 1
 fi
 
-# defaults to dev so i dont accidentally deploy prod
 ENVIRONMENT="dev"
 if [ -n "$1" ]; then
   ENVIRONMENT=$1
@@ -27,7 +24,6 @@ fi
 
 echo "--- Preparing to deploy to the '$ENVIRONMENT' environment ---"
 
-# Generate the wrangler.toml from the template version
 sed \
   -e "s|__PALETTE_KV_ID__|${PROD_PALETTE_KV_ID}|g" \
   -e "s|__PALETTE_KV_PREVIEW_ID__|${PROD_PALETTE_KV_PREVIEW_ID}|g" \
@@ -49,7 +45,6 @@ else
   exit 1
 fi
 
-# deleetus the secret containing wrangler.toml
 echo "Cleaning up generated files..."
 rm wrangler.toml
 

@@ -1,14 +1,8 @@
-// Admin Dashboard JavaScript - WebSocket Version
-// Security: Server-side authentication enforced - users must be authenticated
-// and have admin privileges to access dash.html. No client-side auth check needed.
-// This prevents unauthorized users from accessing admin UI entirely.
-// const BACKEND_URL = `${window.location.origin }`; not sure if this is needed yet
 const IS_DEV_MODE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 const WEBSOCKET_URL = IS_DEV_MODE ?
     `ws://${window.location.host}/ws` :
     `wss://${window.location.host}/ws`;
 
-// let adminData = null; same
 let adminSocket = null;
 let adminData = null;
 let reconnectAttempts = 0;
@@ -17,18 +11,15 @@ let sanityCheckInterval = null;
 let pixelLogEntries = [];
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 1000;
-const SANITY_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SANITY_CHECK_INTERVAL = 5 * 60 * 1000;
 const MAX_PIXEL_LOG_ENTRIES = 50;
 
-// Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
     init();
 });
 
 async function init() {
     try {
-        // Since server-side auth is now enforced, we can skip client-side auth check
-        // If we reached here, the user is already authenticated and authorized
         await setAdminUserData();
         showDashboard();
         setupEventListeners();
@@ -44,15 +35,12 @@ async function init() {
     }
 }
 
-// Set admin user data from localStorage or URL params
 async function setAdminUserData() {
-    // If token is passed as URL parameter, store it in localStorage
     const urlParams = new URLSearchParams(window.location.search);
     const tokenParam = urlParams.get('token');
 
     if (tokenParam) {
         localStorage.setItem('discord_token', tokenParam);
-        // Clean up URL
         window.history.replaceState({}, document.title, window.location.pathname);
     }
 
@@ -80,11 +68,9 @@ async function setAdminUserData() {
 }
 
 function redirectToLogin() {
-    // Clear any stored data
     localStorage.removeItem('discord_token');
     localStorage.removeItem('user_data');
 
-    // Show a brief message before redirecting
     const loadingScreen = document.getElementById('authLoadingScreen');
     if (loadingScreen) {
         loadingScreen.innerHTML = `
@@ -95,7 +81,6 @@ function redirectToLogin() {
         `;
     }
 
-    // Redirect after a short delay
     setTimeout(() => {
         window.location.href = '/index.html';
     }, 1000);
@@ -104,10 +89,8 @@ function redirectToLogin() {
 function showDashboard() {
     const dashboardContainer = document.getElementById('dashboardContainer');
 
-    // Load admin content dynamically after successful auth
     loadAdminContent();
 
-    // Set admin username after content is loaded
     if (adminData?.username) {
         const usernameElement = document.getElementById('adminUsername');
         if (usernameElement) {
@@ -115,11 +98,10 @@ function showDashboard() {
         }
     }
 
-    // Re-initialize theme after content is loaded
     initTheme();
 
     if (dashboardContainer) {
-        dashboardContainer.classList.add('loaded'); // Make content visible
+        dashboardContainer.classList.add('loaded');
     }
 }
 
@@ -131,7 +113,6 @@ function loadAdminContent() {
         return;
     }
 
-    // Admin dashboard HTML template - only loaded after successful auth
     const adminHTML = `
         <!-- Header -->
         <header class="dashboard-header">
@@ -259,7 +240,6 @@ function loadAdminContent() {
     `;
 
     try {
-        // Inject the admin content
         dashboardContainer.innerHTML = adminHTML;
         console.log('Admin content loaded successfully');
     } catch (error) {
@@ -269,7 +249,6 @@ function loadAdminContent() {
 }
 
 function redirectToFiltered() {
-    // Show a brief message before redirecting
     const loadingScreen = document.getElementById('authLoadingScreen');
     if (loadingScreen) {
         loadingScreen.innerHTML = `
@@ -280,7 +259,6 @@ function redirectToFiltered() {
         `;
     }
 
-    // Redirect after a short delay
     setTimeout(() => {
         window.location.href = '/filtered.html';
     }, 1000);
@@ -295,7 +273,6 @@ function logout() {
     redirectToLogin();
 }
 
-// WebSocket Connection Management
 function connectWebSocket() {
     const token = localStorage.getItem('discord_token');
     if (!token) {
@@ -310,7 +287,6 @@ function connectWebSocket() {
             console.log('Admin dashboard WebSocket connected');
             reconnectAttempts = 0;
 
-            // Subscribe to admin dashboard updates
             adminSocket.send(JSON.stringify({
                 type: 'admin_dashboard_subscribe',
                 token: token
@@ -360,7 +336,6 @@ function attemptReconnect() {
 function handleWebSocketMessage(data) {
     switch (data.type) {
         case 'pong':
-            // Connection health confirmation
             break;
 
         case 'admin_stats_update':
@@ -380,12 +355,10 @@ function handleWebSocketMessage(data) {
             break;
 
         case 'broadcast':
-            // Handle broadcast messages for testing
             console.log('Received broadcast:', data);
             break;
 
         case 'announcement': {
-            // Handle announcement messages
             const announcement = data.announcement || data.message || '';
             if (announcement) {
                 alert(`📢 Announcement: ${announcement}`);
@@ -395,21 +368,18 @@ function handleWebSocketMessage(data) {
         }
 
         case 'pixelUpdate':
-            // Handle pixel updates for live grid preview
             if (data.x !== undefined && data.y !== undefined && data.color !== undefined) {
                 addPixelLogEntry(data.x, data.y, data.color, data.sessionId);
             }
             break;
 
         case 'grid_pause_status':
-            // Handle grid pause status updates
             if (data.isPaused !== undefined) {
                 updateGridStatus(data.isPaused);
             }
             break;
 
         case 'activeUsers':
-            // Handle active users updates
             if (data.activeUsers !== undefined) {
                 updateConnectionCount(data.activeUsers.length || data.count || 0);
             }
@@ -446,38 +416,31 @@ function updateGridStatus(isPaused) {
     updateGridUpdateStatusDisplay(isPaused);
 }
 
-// Sanity Check (Client-side only, no server wake)
 function startSanityCheck() {
     sanityCheckInterval = setInterval(() => {
         performSanityCheck();
     }, SANITY_CHECK_INTERVAL);
 
-    // Perform initial sanity check
-    setTimeout(performSanityCheck, 10000); // After 10 seconds
+    setTimeout(performSanityCheck, 10000);
 }
 
 async function performSanityCheck() {
-    // This runs locally and should NOT wake the server
-    // Just validate our local state and WebSocket connection
     console.log('Performing client-side sanity check...');
 
     const token = localStorage.getItem('discord_token');
     const userData = localStorage.getItem('user_data');
 
-    // Check if we still have auth data
     if (!token || !userData) {
         console.log('Sanity check: No auth data found, redirecting to login');
         redirectToLogin();
         return;
     }
 
-    // Check WebSocket connection
     if (!adminSocket || adminSocket.readyState !== WebSocket.OPEN) {
         console.log('Sanity check: WebSocket disconnected, attempting reconnect');
         connectWebSocket();
     }
 
-    // Send ping if connected
     if (adminSocket && adminSocket.readyState === WebSocket.OPEN) {
         try {
             adminSocket.send(JSON.stringify({ type: 'ping' }));
@@ -487,7 +450,6 @@ async function performSanityCheck() {
     }
 }
 
-// Grid Preview Functions (keep minimal fetch for initial load only)
 async function fetchAndDrawGridPreview() {
     try {
         const token = localStorage.getItem('discord_token');
@@ -602,7 +564,6 @@ function addPixelLogEntry(x, y, color, sessionId) {
     renderPixelLog(pixelLogEntries);
 }
 
-// Admin Action Functions - Use WebSocket for actions, not fetches
 async function handleAdminAction(endpoint, body, successMessage, method = 'POST') {
     try {
         const token = localStorage.getItem('discord_token');
@@ -673,7 +634,6 @@ async function handleUpdateStatusMessage() {
     document.getElementById('statusMessageInput').value = '';
 }
 
-// Grid Update Control Functions
 async function toggleGridUpdates(pause) {
     await handleAdminAction('/admin/pause-updates', { pause }, pause ? 'Grid updates paused' : 'Grid updates resumed');
 }
@@ -714,7 +674,6 @@ function updateGridUpdateStatusDisplay(isPaused) {
     }
 }
 
-// Grid Manipulation Functions
 async function handleSetPixel() {
     const x = parseInt(document.getElementById('gridXInput').value);
     const y = parseInt(document.getElementById('gridYInput').value);
@@ -766,7 +725,6 @@ async function handleClearFullGrid() {
     await handleAdminAction('/admin/grid-clear', {}, 'Entire grid cleared');
 }
 
-// Theme toggle functionality
 function toggleDark() {
     console.log("Toggle dark mode called");
     document.documentElement.classList.toggle("dark");
@@ -816,9 +774,7 @@ function initTheme() {
     }
 }
 
-// Event Listeners
 function setupEventListeners() {
-    // Make functions globally available
     window.logout = logout;
     window.fetchAndDrawGridPreview = fetchAndDrawGridPreview;
     window.handleForceDisconnect = handleForceDisconnect;
@@ -830,14 +786,12 @@ function setupEventListeners() {
     window.handleClearPixel = handleClearPixel;
     window.handleClearFullGrid = handleClearFullGrid;
 
-    // Theme toggle event listener
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     if (themeToggleBtn) {
         themeToggleBtn.addEventListener("click", toggleDark);
     }
 }
 
-// Cleanup on page unload
 window.addEventListener('beforeunload', () => {
     if (sanityCheckInterval) {
         clearInterval(sanityCheckInterval);

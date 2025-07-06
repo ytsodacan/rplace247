@@ -170,36 +170,28 @@ app.all(/ws.*/, (c) => c.redirect("/ws", 301));
   }),
 );
 
-// Admin dashboard auth middleware - blocks access to dash.html without proper auth
 app.get("/dash.html", async (c) => {
   const token = extractBearerToken(c.req) || c.req.query('token');
 
   if (!token) {
-    // Redirect to filtered.html for unauthenticated access
     return c.redirect('/filtered.html', 302);
   }
 
-  // Validate the token
   const user = await validateDiscordToken(token, c.env);
   if (!user) {
-    // Redirect to filtered.html for invalid tokens
     return c.redirect('/filtered.html', 302);
   }
 
-  // Check admin privileges
   const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
   const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
 
   if (!adminIds.includes(user.id)) {
-    // Redirect to filtered.html for insufficient privileges
     return c.redirect('/filtered.html', 302);
   }
 
-  // User is authenticated and has admin privileges - serve the dashboard
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-// Protect admin static assets - require authentication for admin JS/CSS files
 app.get("/static/js/dash.js", async (c) => {
   const token = extractBearerToken(c.req) || c.req.query('token');
 
@@ -207,13 +199,11 @@ app.get("/static/js/dash.js", async (c) => {
     return c.text('Unauthorized', 401);
   }
 
-  // Validate the token
   const user = await validateDiscordToken(token, c.env);
   if (!user) {
     return c.text('Unauthorized', 401);
   }
 
-  // Check admin privileges
   const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
   const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
 
@@ -221,7 +211,6 @@ app.get("/static/js/dash.js", async (c) => {
     return c.text('Forbidden', 403);
   }
 
-  // User is authenticated and has admin privileges - serve the JS file
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
@@ -232,13 +221,11 @@ app.get("/static/css/dash.css", async (c) => {
     return c.text('Unauthorized', 401);
   }
 
-  // Validate the token
   const user = await validateDiscordToken(token, c.env);
   if (!user) {
     return c.text('Unauthorized', 401);
   }
 
-  // Check admin privileges
   const adminUserIds = await c.env.PALETTE_KV.get("admin_user_ids");
   const adminIds = adminUserIds ? JSON.parse(adminUserIds) : [];
 
@@ -246,7 +233,6 @@ app.get("/static/css/dash.css", async (c) => {
     return c.text('Forbidden', 403);
   }
 
-  // User is authenticated and has admin privileges - serve the CSS file
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
@@ -1164,7 +1150,6 @@ export class GridDurableObject {
     }
     if (url.pathname === "/pixel" && request.method === "POST") {
       try {
-        // Check if grid updates are paused
         if (this.gridUpdatesPaused) {
           return new Response(
             JSON.stringify({ message: "Grid updates are currently paused by administrators" }),
@@ -1273,7 +1258,6 @@ export class GridDurableObject {
           user: user ? { id: user.id, username: user.username } : null,
         });
 
-        // Add to pixel placement log
         this.addPixelLogEntry({
           x,
           y,
@@ -1532,7 +1516,6 @@ export class GridDurableObject {
       }
     }
 
-    // New admin endpoints
     if (url.pathname === "/admin/auth-check" && request.method === "GET") {
       const token = extractBearerToken(request);
       if (!token) {
@@ -1623,7 +1606,6 @@ export class GridDurableObject {
           { headers: corsHeaders }
         );
       } else {
-        // Return chunked format for admin preview
         const chunks = [];
         for (let i = 0; i < totalChunks; i++) {
           const chunkKey = `chunk:${i}`;
@@ -1644,7 +1626,6 @@ export class GridDurableObject {
             this.chunkCache.set(chunkKey, chunkData);
           }
 
-          // Convert to flat array of color integers
           const flatPixels = [];
           for (const row of chunkData) {
             for (const color of row) {
@@ -1744,8 +1725,6 @@ export class GridDurableObject {
           );
         }
 
-        // Note: This is a placeholder implementation
-        // Full session disconnect requires mapping session IDs to WebSocket objects
         console.log(`Admin ${user.username} requested disconnect of session: ${sessionId}`);
         this.logToConsole("info", `Session disconnect requested by ${user.username}: ${sessionId}`);
 

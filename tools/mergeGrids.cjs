@@ -1,13 +1,7 @@
-/* mergeGrids.js
-   Usage:  node mergeGrids.js fileA.json fileB.json fileC.json -o merged.json
-   Earlier files override later ones, but *only* where their cells are not
-   "" or "#FFFFFF".
-*/
 
 const fs = require("fs");
 const path = require("path");
 
-// --- CLI ------------------------------------------------------------------
 const args = process.argv.slice(2);
 if (args.length < 2) {
     console.error("Syntax: mergeGrids.js <file1> <file2> [...fileN] [-o output]");
@@ -19,7 +13,7 @@ const fileNames = [];
 for (let i = 0; i < args.length; i++) {
     if (args[i] === "-o") {
         outName = args[i + 1] || outName;
-        i++; // skip output arg
+        i++;
     } else {
         fileNames.push(args[i]);
     }
@@ -29,7 +23,6 @@ if (fileNames.length < 2) {
     process.exit(1);
 }
 
-// --- Helpers --------------------------------------------------------------
 const isDefault = (v) => v === "" || v === "#FFFFFF";
 
 /**
@@ -50,11 +43,9 @@ function loadGrid(file) {
  */
 const cloneGrid = (grid) => grid.map((row) => row.slice());
 
-// --- Merge ----------------------------------------------------------------
 const { data: baseGrid, meta: baseMeta } = loadGrid(fileNames[fileNames.length - 1]);
 let merged = cloneGrid(baseGrid);
 
-// Walk the *earlier* files from next-to-last up to first (highest priority)
 for (let i = fileNames.length - 2; i >= 0; i--) {
     const { data: g } = loadGrid(fileNames[i]);
     for (let y = 0; y < g.length; y++) {
@@ -64,9 +55,8 @@ for (let i = fileNames.length - 2; i >= 0; i--) {
     }
 }
 
-// --- Write result ---------------------------------------------------------
 const output = {
-    ...baseMeta,                       // keep width/height/version fields
+    ...baseMeta,
     timestamp: new Date().toISOString(),
     data: merged,
 };

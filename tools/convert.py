@@ -9,14 +9,12 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog
 from typing import TYPE_CHECKING, Any, Dict, List, Tuple
 
-# --- Pillow (PIL) Import Handling ---
 try:
     from PIL import Image as PILImage
-    # Use modern Resampling enum if available, otherwise fallback to legacy constants
     try:
         Resampling = PILImage.Resampling
     except AttributeError:
-        Resampling = PILImage  # Fallback for older Pillow versions
+        Resampling = PILImage
     if TYPE_CHECKING:
         from PIL.Image import Image as ImageType
     else:
@@ -26,13 +24,10 @@ except ImportError:
     ImageType = Any
     Resampling = None
 
-# --- tqdm Import Handling (Optional Progress Bar) ---
 try:
     from tqdm import tqdm
 except ImportError:
     tqdm = None
-
-# --- Core Conversion Logic ---
 
 
 def rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
@@ -76,14 +71,12 @@ def image_to_grid_json(image_path: Path,
         grid_data = [[rgb_to_hex(pixels[x, y]) for x in range(img.width)]
                      for y in y_range]
 
-        # --- REVERTED JSON STRUCTURE ---
-        # The output format is returned to the original flat structure for compatibility.
         json_output: Dict[str, Any] = {
             "timestamp":
             datetime.datetime.now(
                 datetime.timezone.utc).isoformat(timespec='milliseconds'),
             "version":
-            "1.1",  # Version reflects script changes, not structural changes.
+            "1.1",
             "gridWidth":
             target_width,
             "gridHeight":
@@ -113,9 +106,6 @@ def image_to_grid_json(image_path: Path,
         if show_gui_messages:
             messagebox.showerror("Error", error_message)
         raise
-
-
-# --- UI and Execution Modes ---
 
 
 def run_gui():

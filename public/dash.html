@@ -12,29 +12,23 @@
 </head>
 
 <body>
-    <!-- Main dashboard container -->
     <div id="dashboardContainer" class="dashboard-container">
-        <!-- Admin content will be loaded here by the JavaScript -->
     </div>
 
     <script>
-        // Load admin assets with authentication token
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token') || localStorage.getItem('discord_token');
 
         if (token) {
-            // Dynamically load the admin CSS with token
             const adminCSS = document.getElementById('adminCSS');
             adminCSS.href = `/static/css/dash.css?token=${encodeURIComponent(token)}`;
 
-            // Dynamically load the admin JS with token
             const adminJS = document.createElement('script');
             adminJS.src = `/static/js/dash.js?token=${encodeURIComponent(token)}`;
             adminJS.type = 'module';
 
             document.body.appendChild(adminJS);
         } else {
-            // No token, redirect to filtered page
             window.location.href = '/filtered.html';
         }
     </script>
