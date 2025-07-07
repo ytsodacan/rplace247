@@ -67,6 +67,36 @@ button {
 	--subtle-gradient-color: #ffffff;
 }
 
+.nweroStyle {
+	--background: repeating-linear-gradient(135deg,
+			#ff99cc 0px,
+			#ff99cc 18px,
+			#ffadd6 18px,
+			#ffadd6 20px);
+	--bg-primary: #ff99cc;
+	--bg-secondary: #ff6699;
+	--bg-tertiary: #e75480;
+	--bg-tertiary-rgb: 231, 84, 128;
+	--border: rgba(0, 0, 0, 0.1);
+	--border-hover: rgba(0, 0, 0, 0.15);
+	--accent: #ffb347;
+	--accent-hover: #ffd699;
+	--text-primary: #1f1f1f;
+	--text-secondary: #3a3a3a;
+	--text-muted: #666666;
+	--shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+	--shadow-md:
+		0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+	--shadow-lg:
+		0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+	--glass-bg: rgba(255, 153, 204, 0.7);
+	--glass-border: rgba(0, 0, 0, 0.1);
+	--success: #10b981;
+	--warning: #f97316;
+	--error: #ef4444;
+	--subtle-gradient-color: #ffffff;
+}
+
 body,
 html {
 	height: 100%;
@@ -74,6 +104,11 @@ html {
 	font-family: Inter, sans-serif;
 	background: var(--bg-primary);
 	color: var(--text-primary);
+}
+
+body.nweroStyle,
+html.nweroStyle {
+	background: var(--background);
 }
 
 .glass {
@@ -104,12 +139,10 @@ html {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(
-		45deg,
-		transparent,
-		rgba(255, 255, 255, 0.1),
-		transparent
-	);
+	background: linear-gradient(45deg,
+			transparent,
+			rgba(255, 255, 255, 0.1),
+			transparent);
 	transform: translateX(-100%);
 	transition: transform 0.3s ease;
 }
@@ -163,18 +196,17 @@ html {
 	content: "";
 	position: absolute;
 	inset: 0;
-	background: linear-gradient(
-		90deg,
-		var(--accent),
-		var(--accent-hover),
-		var(--accent)
-	);
+	background: linear-gradient(90deg,
+			var(--accent),
+			var(--accent-hover),
+			var(--accent));
 	background-size: 200% 100%;
 	animation: gradient-shift 3s ease-in-out infinite;
 	opacity: 0.05;
 }
 
 @keyframes gradient-shift {
+
 	0%,
 	100% {
 		background-position: 0 50%;
@@ -602,6 +634,7 @@ html {
 }
 
 @keyframes pulse {
+
 	0%,
 	100% {
 		opacity: 1;
@@ -645,12 +678,10 @@ html {
 	content: "";
 	position: absolute;
 	inset: -2px;
-	background: linear-gradient(
-		45deg,
-		var(--accent),
-		var(--accent-hover),
-		var(--accent)
-	);
+	background: linear-gradient(45deg,
+			var(--accent),
+			var(--accent-hover),
+			var(--accent));
 	background-size: 200% 200%;
 	border-radius: 1.5rem;
 	opacity: 0;
@@ -664,6 +695,7 @@ html {
 }
 
 @keyframes gradient-border {
+
 	0%,
 	100% {
 		background-position: 0 50%;
@@ -938,11 +970,11 @@ html {
 	border-radius: 50%;
 }
 
-input:checked + .slider {
+input:checked+.slider {
 	background-color: var(--success);
 }
 
-input:checked + .slider:before {
+input:checked+.slider:before {
 	transform: translateX(20px);
 }
 
@@ -993,6 +1025,7 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 768px) {
+
 	.coords-display,
 	.zoom,
 	.zoom-in,
@@ -1060,7 +1093,7 @@ input:checked + .slider:before {
 	font-size: 11px;
 }
 
-/* ===== COUNTDOWN TIMER STYLES ===== */
+
 .countdown-timer-overlay,
 .timer-background-container {
 	position: fixed;
@@ -1078,8 +1111,8 @@ input:checked + .slider:before {
 	pointer-events: all;
 }
 
-.countdown-timer-overlay .timer-background,
-.timer-background {
+.timer-background,
+.countdown-timer-overlay .timer-background {
 	width: 100%;
 	height: 100vh;
 	background: linear-gradient(to bottom right, #ff99cc, #ff6699);
@@ -1087,8 +1120,8 @@ input:checked + .slider:before {
 	overflow: hidden;
 }
 
-.dark .countdown-timer-overlay .timer-background,
-.dark .timer-background {
+.dark .timer-background,
+.dark .countdown-timer-overlay .timer-background {
 	background: linear-gradient(to bottom right, #4a1a3d, #2a1529);
 }
 
@@ -1134,12 +1167,6 @@ input:checked + .slider:before {
 	text-transform: uppercase;
 }
 
-.timer-container li span {
-	display: block;
-	font-size: 4.5rem;
-	font-weight: bold;
-}
-
 .timer-emoji {
 	display: none;
 	padding: 1rem;
@@ -1150,10 +1177,15 @@ input:checked + .slider:before {
 	padding: 0 0.5rem;
 }
 
+.timer-container li span {
+	display: block;
+	font-size: 4.5rem;
+	font-weight: bold;
+}
+
 .timer-background .star-container {
 	position: absolute;
 	top: var(--start-top);
-	left: var(--start-left);
 	opacity: 0;
 	animation: timer-star-fall var(--animation-duration) linear infinite;
 	transform-origin: center center;
@@ -1165,7 +1197,7 @@ input:checked + .slider:before {
 }
 
 .timer-background .cog-container {
-	/* Large cog, floats in place, fades in */
+
 	position: absolute;
 	top: var(--start-top);
 	left: var(--start-left);
@@ -1183,6 +1215,7 @@ input:checked + .slider:before {
 	0% {
 		transform: rotate(0deg);
 	}
+
 	100% {
 		transform: rotate(360deg);
 	}
@@ -1192,13 +1225,13 @@ input:checked + .slider:before {
 	0% {
 		opacity: 0;
 	}
+
 	100% {
 		opacity: 1;
 	}
 }
 
 .timer-background .cog-object {
-	/* Large, drawable cog icon (SVG, emoji, or styled div) */
 	width: 100%;
 	height: 100%;
 	font-size: calc(var(--cog-size, 120px) * 0.9);
@@ -1208,21 +1241,14 @@ input:checked + .slider:before {
 	justify-content: center;
 	animation: cog-rotation 12s linear infinite;
 	will-change: transform;
-	/* If using SVG, ensure it fills the container */
 }
 
-/* Example */
-/*
-.timer-background .cog-object.cog-shape {
-	background: radial-gradient(circle at 50% 50%, #bfc9e0 70%, #8a99b8 100%);
-	border-radius: 50%;
-	box-shadow: 0 0 16px 2px #bfc9e055;
-	/* ::before/::after for more shapes if you want */
+
 
 .timer-background .star-icon {
 	color: var(--star-color, white);
 	font-size: var(--star-size, 20px);
-	transform: rotate(-45deg);
+	transform: rotate(-60deg);
 	line-height: 1;
 	z-index: 2;
 }
@@ -1242,28 +1268,36 @@ input:checked + .slider:before {
 	border-radius: 1px;
 }
 
+
+.timer-background .star-container::after {
+	content: "★";
+	position: absolute;
+	color: var(--star-color, white);
+	font-size: var(--star-size, 20px);
+	transform: rotate(-45deg);
+	line-height: 1;
+	z-index: 2;
+}
+
 @keyframes timer-star-fall {
 	0% {
 		transform: translate(0, 0) rotate(45deg);
 		opacity: 0;
 	}
+
 	5% {
 		opacity: 1;
 	}
+
 	95% {
 		opacity: 1;
-		transform: translate(
-				var(--move-distance, 1500px),
-				var(--move-distance, 1500px)
-			)
-			rotate(45deg);
+		transform: translate(var(--move-distance, 1500px),
+				var(--move-distance, 1500px)) rotate(45deg);
 	}
+
 	100% {
-		transform: translate(
-				var(--move-distance, 1500px),
-				var(--move-distance, 1500px)
-			)
-			rotate(45deg);
+		transform: translate(var(--move-distance, 1500px),
+				var(--move-distance, 1500px)) rotate(45deg);
 		opacity: 0;
 	}
 }
@@ -1273,14 +1307,17 @@ input:checked + .slider:before {
 		width: 0;
 		opacity: 0;
 	}
+
 	5% {
 		width: var(--trail-length);
 		opacity: 1;
 	}
+
 	95% {
 		width: var(--trail-length);
 		opacity: 1;
 	}
+
 	100% {
 		width: 0;
 		opacity: 0;
@@ -1307,7 +1344,7 @@ input:checked + .slider:before {
 	}
 }
 
-/* ===== TIMER DEMO PAGE STYLES ===== */
+
 .timer .cog-container {
 	position: absolute;
 	animation: rotateCog 20s linear infinite;
@@ -1315,28 +1352,90 @@ input:checked + .slider:before {
 }
 
 @keyframes rotateCog {
-	from { transform: rotate(0deg); }
-	to { transform: rotate(360deg); }
+	from {
+		transform: rotate(0deg);
+	}
+
+	to {
+		transform: rotate(360deg);
+	}
 }
 
-.timer .star {
+.star {
 	position: absolute;
-	width: 4px;
-	height: 4px;
-	background: #fff;
-	border-radius: 50%;
+	width: 25px;
+	height: 25px;
+	background: transparent;
 	animation: fallingStar 8s linear infinite;
 	z-index: 3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.star::before {
+	content: "★";
+	color: #fff;
+	font-size: 25px;
+	line-height: 1;
+	animation: starTwinkle 1.5s infinite alternate;
+	position: relative;
+	z-index: 2;
+}
+
+.star::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: var(--trail-length, 60px);
+	height: var(--trail-thickness, 3px);
+	background: var(--trail-gradient,
+			linear-gradient(to top left,
+				rgba(255, 255, 255, 0.8),
+				rgba(255, 255, 255, 0)));
+	transform: translate(-100%, -100%) rotate(45deg);
+	transform-origin: right bottom;
+	z-index: 1;
+	border-radius: 2px;
 }
 
 @keyframes fallingStar {
 	0% {
-		transform: translateX(0) translateY(0);
+		transform: translate(0, 0);
 		opacity: 1;
 	}
+
 	100% {
-		transform: translateX(100vw) translateY(100vh);
+		transform: translate(var(--move-distance, 2000px), var(--move-distance, 2000px));
 		opacity: 0;
+	}
+}
+
+@keyframes starTwinkle {
+	0% {
+		opacity: 0.4;
+		transform: scale(1);
+	}
+
+	25% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+
+	50% {
+		opacity: 0.4;
+		transform: scale(1);
+	}
+
+	75% {
+		opacity: 1;
+		transform: scale(1.2);
+	}
+
+	100% {
+		opacity: 0.87;
+		transform: scale(1.2);
 	}
 }
 
@@ -1361,7 +1460,7 @@ input:checked + .slider:before {
 .timer .settings-panel h3 {
 	margin: 0 0 15px 0;
 	color: var(--text-primary);
-	font-family: 'First Coffee', cursive, sans-serif;
+	font-family: "First Coffee", cursive, sans-serif;
 	font-size: 1.2rem;
 }
 
@@ -1372,7 +1471,7 @@ input:checked + .slider:before {
 	font-weight: 500;
 }
 
-.timer .settings-panel input, 
+.timer .settings-panel input,
 .timer .settings-panel select {
 	width: 100%;
 	padding: 8px;
@@ -1437,11 +1536,17 @@ input:checked + .slider:before {
 	display: none;
 }
 
-/* Timer demo page specific styles */
+
 .timer body {
 	min-height: 100vh;
-	background: linear-gradient(135deg, #ffb6e6 0%, #ffb6e6 100%);
+	background: linear-gradient(135deg,
+			var(--bg-primary, #ff99cc) 0%,
+			var(--bg-secondary, #ff6699) 100%);
 	overflow: hidden;
+}
+
+.timer.nweroStyle body {
+	background: var(--background);
 }
 
 .timer .container {
@@ -1455,13 +1560,15 @@ input:checked + .slider:before {
 }
 
 .timer #headline {
-	font-family: 'First Coffee', cursive, sans-serif;
+	font-family: "First Coffee", cursive, sans-serif;
 	font-size: 2.2rem;
 	color: #1f2937;
 	margin-bottom: 2rem;
 	text-align: center;
 	letter-spacing: 1px;
-	text-shadow: 2px 2px 0 #fff8, 0 2px 8px #fff4;
+	text-shadow:
+		2px 2px 0 #fff8,
+		0 2px 8px #fff4;
 }
 
 .timer #countdown ul {
@@ -1476,7 +1583,7 @@ input:checked + .slider:before {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	font-family: 'First Coffee', cursive, sans-serif;
+	font-family: "First Coffee", cursive, sans-serif;
 	font-size: 1.3rem;
 	color: #1f2937;
 	text-shadow: 1px 1px 0 #fff8;
@@ -1487,7 +1594,9 @@ input:checked + .slider:before {
 	font-weight: bold;
 	color: #1f2937;
 	margin-bottom: 0.2em;
-	text-shadow: 2px 2px 0 #fff8, 0 2px 8px #fff4;
+	text-shadow:
+		2px 2px 0 #fff8,
+		0 2px 8px #fff4;
 }
 
 .timer .background {
@@ -1497,7 +1606,7 @@ input:checked + .slider:before {
 	pointer-events: none;
 }
 
-/* Responsive tweaks for timer demo */
+
 @media (max-width: 768px) {
 	.timer #headline {
 		font-size: 1.2rem;
