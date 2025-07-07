@@ -22,7 +22,7 @@ button {
 	--bg-tertiary: #f5f5f5;
 	--bg-tertiary-rgb: 245, 245, 245;
 	--border: rgba(0, 0, 0, 0.08);
-	
+
 	--border-hover: rgba(0, 0, 0, 0.12);
 	--accent: #6366f1;
 	--accent-hover: #5855eb;
@@ -1058,4 +1058,239 @@ input:checked + .slider:before {
 	content: "Disconnected";
 	margin-left: 4px;
 	font-size: 11px;
+}
+
+/* ===== COUNTDOWN TIMER STYLES ===== */
+.countdown-timer-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100vh;
+	z-index: 9999;
+	pointer-events: none;
+	overflow: hidden;
+}
+
+.countdown-timer-overlay.active {
+	pointer-events: all;
+}
+
+.countdown-timer-overlay .timer-background {
+	width: 100%;
+	height: 100vh;
+	background: linear-gradient(to bottom right, #ff99cc, #ff6699);
+	position: relative;
+	overflow: hidden;
+}
+
+.dark .countdown-timer-overlay .timer-background {
+	background: linear-gradient(to bottom right, #4a1a3d, #2a1529);
+}
+
+.countdown-timer-overlay .timer-container {
+	color: var(--text-primary);
+	margin: 0 auto;
+	text-align: center;
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 1000;
+	background-color: transparent;
+	padding: 30px;
+	width: 1000px;
+	max-width: 90vh;
+	box-sizing: border-box;
+	font-family: "First Coffee", serif;
+}
+
+.countdown-timer-overlay .timer-container h1 {
+	font-weight: normal;
+	letter-spacing: 0.125rem;
+	text-transform: uppercase;
+	font-size: 2rem;
+	margin: 0 0 1rem 0;
+}
+
+.countdown-timer-overlay .timer-container ul {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	display: flex;
+	justify-content: center;
+	gap: 1rem;
+}
+
+.countdown-timer-overlay .timer-container li {
+	display: inline-block;
+	font-size: 1.5em;
+	list-style-type: none;
+	padding: 1em;
+	text-transform: uppercase;
+}
+
+.countdown-timer-overlay .timer-container li span {
+	display: block;
+	font-size: 4.5rem;
+	font-weight: bold;
+}
+
+.countdown-timer-overlay .timer-emoji {
+	display: none;
+	padding: 1rem;
+}
+
+.countdown-timer-overlay .timer-emoji span {
+	font-size: 4rem;
+	padding: 0 0.5rem;
+}
+
+.countdown-timer-overlay .star-container {
+	position: absolute;
+	top: var(--start-top);
+	left: var(--start-left);
+	opacity: 0;
+	animation: timer-star-fall var(--animation-duration) linear infinite;
+	transform-origin: center center;
+	transform: translate(0, 0) rotate(45deg);
+	z-index: 1;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+}
+
+.countdown-timer-overlay .cog-container {
+	/* Large cog, floats in place, fades in */
+	position: absolute;
+	top: var(--start-top);
+	left: var(--start-left);
+	width: var(--cog-size, 120px);
+	height: var(--cog-size, 120px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0;
+	animation: cog-fade-in 1.2s ease-in forwards;
+	z-index: 3;
+}
+
+@keyframes cog-rotation {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+@keyframes cog-fade-in {
+	0% { opacity: 0; }
+	100% { opacity: 1; }
+}
+
+.countdown-timer-overlay .cog-object {
+	/* Large, drawable cog icon (SVG, emoji, or styled div) */
+	width: 100%;
+	height: 100%;
+	font-size: calc(var(--cog-size, 120px) * 0.9);
+	color: var(--cog-color, #bfc9e0);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: cog-rotation 12s linear infinite;
+	will-change: transform;
+	/* If using SVG, ensure it fills the container */
+}
+
+/* Example: If you want to draw a CSS cog, you can add a .cog-shape here, or use an SVG/emoji in HTML */
+/*
+.countdown-timer-overlay .cog-object.cog-shape {
+	background: radial-gradient(circle at 50% 50%, #bfc9e0 70%, #8a99b8 100%);
+	border-radius: 50%;
+	box-shadow: 0 0 16px 2px #bfc9e055;
+	/* Add more complex shapes with ::before/::after for teeth if desired */
+
+.countdown-timer-overlay .star-icon {
+	color: var(--star-color, white);
+	font-size: var(--star-size, 20px);
+	transform: rotate(-45deg);
+	line-height: 1;
+	z-index: 2;
+}
+
+.countdown-timer-overlay .star-container::before {
+	content: "";
+	position: absolute;
+	bottom: 50%;
+	right: 50%;
+	transform: translate(0%, 50%) rotate(0deg);
+	width: 0;
+	height: var(--trail-thickness, 2px);
+	background: var(--trail-gradient);
+	animation: timer-trail-grow var(--animation-duration) linear infinite;
+	transform-origin: bottom right;
+	z-index: 0;
+	border-radius: 1px;
+}
+
+@keyframes timer-star-fall {
+	0% {
+		transform: translate(0, 0) rotate(45deg);
+		opacity: 0;
+	}
+	5% {
+		opacity: 1;
+	}
+	95% {
+		opacity: 1;
+		transform: translate(
+				var(--move-distance, 1500px),
+				var(--move-distance, 1500px)
+			)
+			rotate(45deg);
+	}
+	100% {
+		transform: translate(
+				var(--move-distance, 1500px),
+				var(--move-distance, 1500px)
+			)
+			rotate(45deg);
+		opacity: 0;
+	}
+}
+
+@keyframes timer-trail-grow {
+	0% {
+		width: 0;
+		opacity: 0;
+	}
+	5% {
+		width: var(--trail-length);
+		opacity: 1;
+	}
+	95% {
+		width: var(--trail-length);
+		opacity: 1;
+	}
+	100% {
+		width: 0;
+		opacity: 0;
+	}
+}
+
+@media (max-width: 768px) {
+	.countdown-timer-overlay .timer-container {
+		width: 90vw;
+		max-width: 90vw;
+	}
+
+	.countdown-timer-overlay .timer-container h1 {
+		font-size: calc(1.5rem * 0.8);
+	}
+
+	.countdown-timer-overlay .timer-container li {
+		font-size: calc(1.125rem * 0.8);
+		padding: 0.5em;
+	}
+
+	.countdown-timer-overlay .timer-container li span {
+		font-size: calc(3.375rem * 0.8);
+	}
 }

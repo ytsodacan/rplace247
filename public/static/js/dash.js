@@ -14,7 +14,6 @@ const RECONNECT_DELAY = 1000;
 const SANITY_CHECK_INTERVAL = 5 * 60 * 1000;
 const MAX_PIXEL_LOG_ENTRIES = 50;
 
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         console.log('DOM Content Loaded - starting dashboard initialization');
@@ -54,7 +53,6 @@ async function init() {
     } catch (error) {
         console.error('Dashboard initialization failed:', error);
 
-        // Show error in the loading screen instead of redirecting immediately
         const loadingScreen = document.getElementById('loadingScreen');
         if (loadingScreen) {
             loadingScreen.innerHTML = `
@@ -66,7 +64,6 @@ async function init() {
             `;
         }
 
-        // Only redirect after a delay to allow user to see the error
         setTimeout(() => {
             redirectToLogin();
         }, 5000);
@@ -127,7 +124,6 @@ function redirectToLogin() {
 function showDashboard() {
     const dashboardContainer = document.getElementById('dashboardContainer');
 
-    // Hide loading screen
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) {
         loadingScreen.style.display = 'none';
@@ -280,6 +276,17 @@ function loadAdminContent() {
                         <button class="btn btn-danger" onclick="handleClearFullGrid()">Clear Entire Grid</button>
                     </div>
                 </div>
+
+                <!-- Countdown Timer Control -->
+                <div class="action-section">
+                    <h4>Countdown Timer</h4>
+                    <div class="action-controls">
+                        <span class="status-indicator" id="timerStatus">Inactive</span>
+                        <input type="number" class="input-field" id="timerMinutesInput" placeholder="Minutes" min="1" max="1440" value="1">
+                        <button class="btn btn-success" id="startTimerBtn" onclick="handleStartTimer()">Start Timer</button>
+                        <button class="btn btn-danger" id="stopTimerBtn" onclick="handleStopTimer()">Stop Timer</button>
+                    </div>
+                </div>
             </section>
         </main>
     `;
@@ -427,6 +434,12 @@ function handleWebSocketMessage(data) {
         case 'activeUsers':
             if (data.activeUsers !== undefined) {
                 updateConnectionCount(data.activeUsers.length || data.count || 0);
+            }
+            break;
+
+        case 'timer_status_update':
+            if (data.isActive !== undefined) {
+                updateTimerStatusDisplay(data.isActive);
             }
             break;
 
@@ -770,6 +783,49 @@ async function handleClearFullGrid() {
     await handleAdminAction('/admin/grid-clear', {}, 'Entire grid cleared');
 }
 
+async function handleStartTimer() {
+    const minutes = parseInt(document.getElementById('timerMinutesInput').value);
+    if (Number.isNaN(minutes) || minutes < 1 || minutes > 1440) {
+        alert('Please enter a valid number of minutes (1-1440)');
+        return;
+    }
+
+    try {
+        await handleAdminAction('/admin/timer-start', { minutes }, `Timer started for ${minutes} minutes`);
+        updateTimerStatusDisplay(true);
+        document.getElementById('timerMinutesInput').value = '';
+    } catch (error) {
+        console.error('Failed to start timer:', error);
+    }
+}
+
+async function handleStopTimer() {
+    try {
+        await handleAdminAction('/admin/timer-stop', {}, 'Timer stopped');
+        updateTimerStatusDisplay(false);
+    } catch (error) {
+        console.error('Failed to stop timer:', error);
+    }
+}
+
+function updateTimerStatusDisplay(isActive) {
+    const statusElement = document.getElementById('timerStatus');
+    const startBtn = document.getElementById('startTimerBtn');
+    const stopBtn = document.getElementById('stopTimerBtn');
+
+    if (isActive) {
+        statusElement.textContent = 'ACTIVE';
+        statusElement.className = 'status-indicator status-active';
+        if (startBtn) startBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'inline-block';
+    } else {
+        statusElement.textContent = 'INACTIVE';
+        statusElement.className = 'status-indicator status-paused';
+        if (startBtn) startBtn.style.display = 'inline-block';
+        if (stopBtn) stopBtn.style.display = 'none';
+    }
+}
+
 function toggleDark() {
     console.log("Toggle dark mode called");
     document.documentElement.classList.toggle("dark");
@@ -830,6 +886,8 @@ function setupEventListeners() {
     window.handleSetPixel = handleSetPixel;
     window.handleClearPixel = handleClearPixel;
     window.handleClearFullGrid = handleClearFullGrid;
+    window.handleStartTimer = handleStartTimer;
+    window.handleStopTimer = handleStopTimer;
 
     const themeToggleBtn = document.getElementById('themeToggleBtn');
     if (themeToggleBtn) {
