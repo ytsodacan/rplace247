@@ -1,0 +1,284 @@
+@font-face {
+    font-family: "First Coffee";
+    src: url(First_Coffee.ttf) format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+body,
+html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+}
+
+* {
+    z-index: 0;
+}
+
+.background {
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(to bottom right, #ff99cc, #ff6699);
+    /* Pink gradient */
+    position: relative;
+    overflow: hidden;
+}
+
+.star-container {
+    /* This will be the wrapper created by JS */
+    position: absolute;
+    top: var(--start-top);
+    left: var(--start-left);
+    opacity: 0;
+    /* Starts invisible */
+    animation: fall var(--animation-duration) linear infinite;
+    transform-origin: center center;
+    /* Overall rotation for top-left to bottom-right movement */
+    transform: translate(0, 0) rotate(45deg);
+    /* */
+    z-index: 1;
+    display: flex;
+    /* To center the star icon */
+    justify-content: center;
+    align-items: center;
+    /* Center star within its container */
+}
+
+.container {
+    z-index: 69;
+    color: #000000;
+    margin: 0 auto;
+    text-align: center;
+    position: fixed;
+    /* Or 'absolute' if you want it to scroll with its positioned parent */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    /* Crucial for perfect centering */
+
+    /* Stacking order */
+    z-index: 1000;
+    /* Make sure it's higher than any other elements */
+
+    /* Appearance of the overlay */
+    background-color: transparent;
+    padding: 30px;
+    text-align: center;
+    width: 1000px;
+    /* Or min-width/max-width */
+    max-width: 90vh;
+    /* To prevent it from going off-screen on small viewports */
+    box-sizing: border-box;
+    /* Include padding and border in the width */
+    font-family: "First Coffee";
+}
+
+h1 {
+    font-weight: normal;
+    letter-spacing: .125rem;
+    text-transform: uppercase;
+}
+
+li {
+    display: inline-block;
+    font-size: 1.5em;
+    list-style-type: none;
+    padding: 1em;
+    text-transform: uppercase;
+}
+
+li span {
+    display: block;
+    font-size: 4.5rem;
+}
+
+.emoji {
+    display: none;
+    padding: 1rem;
+}
+
+.emoji span {
+    font-size: 4rem;
+    padding: 0 .5rem;
+}
+
+@media all and (max-width: 768px) {
+    h1 {
+        font-size: calc(1.5rem * var(--smaller));
+    }
+
+    li {
+        font-size: calc(1.125rem * var(--smaller));
+    }
+
+    li span {
+        font-size: calc(3.375rem * var(--smaller));
+    }
+}
+
+.star-icon {
+    /* The Material Symbol icon itself */
+    color: var(--star-color, white);
+    /* */
+    font-size: var(--star-size, 20px);
+    /* */
+    /* Counter-rotate the icon to keep it visually upright relative to the screen */
+    transform: rotate(-45deg);
+    /* */
+    line-height: 1;
+    z-index: 2;
+    /* Ensure the star is on top of the trail */
+}
+
+/* The TRAIL using ::before pseudo-element */
+.star-container::before {
+    content: '';
+    position: absolute;
+    /* Position the trail's bottom-right corner at the star's center.
+       Since the container is rotated 45deg, 'bottom' and 'right' refer to its *local* axis.
+       The star icon is effectively at the center of the container.
+       We want the trail to extend from the star (bottom-right of the trail's local space)
+       upwards and leftwards (to its top-left corner).
+    */
+    bottom: 50%;
+    /* Center vertically with the star */
+    right: 50%;
+    /* Center horizontally with the star */
+    /* This transform will move the *center* of the ::before element
+       so that its *bottom-right* corner aligns with the star's center.
+       Then, apply the rotation back to 0 degrees relative to its parent's rotation. */
+    transform: translate(0%, 50%) rotate(0deg);
+    /* This puts its bottom-right at the star's center */
+
+
+    width: 0;
+    /* Animated to length */
+    height: var(--trail-thickness, 2px);
+    /* Thickness of the trail */
+    /* CHANGE: Gradient direction is now 'to top left' */
+    background: var(--trail-gradient);
+    /* */
+    animation: trail-grow var(--animation-duration) linear infinite;
+    /* */
+    /* CHANGE: Transform origin is now bottom right */
+    transform-origin: bottom right;
+    /* Trail grows from bottom right (star) to top left (fade) */
+    z-index: 0;
+    /* Place behind the star icon */
+    border-radius: 1px;
+}
+
+
+/* Keyframes for the falling star-trail unit (45-degree angle: top-left to bottom-right) */
+@keyframes fall {
+    0% {
+        transform: translate(0, 0) rotate(45deg);
+        /* */
+        opacity: 0;
+    }
+
+    5% {
+        /* Fade in quickly */
+        opacity: 1;
+    }
+
+    95% {
+        /* Maintain opacity and move diagonally */
+        opacity: 1;
+        transform: translate(var(--move-distance, 1500px), var(--move-distance, 1500px)) rotate(45deg);
+        /* */
+    }
+
+    100% {
+        transform: translate(var(--move-distance, 1500px), var(--move-distance, 1500px)) rotate(45deg);
+        /* */
+        opacity: 0;
+        /* Fade out */
+    }
+}
+
+/* Keyframes for the trail growing/shrinking */
+@keyframes trail-grow {
+    0% {
+        width: 0;
+        opacity: 0;
+    }
+
+    5% {
+        /* Trail grows quickly as star appears */
+        width: var(--trail-length);
+        opacity: 1;
+    }
+
+    95% {
+        /* Maintain full length and opacity */
+        width: var(--trail-length);
+        opacity: 1;
+    }
+
+    100% {
+        /* Trail shrinks and fades as star disappears */
+        width: 0;
+        opacity: 0;
+    }
+}
+
+/*
+.cog {
+    position: fixed;
+    top: -250px;
+    right: -150px;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0.5;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.cog2 {
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0.5;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.cog3 {
+    position: fixed;
+    bottom: -300px;
+    left: 250px;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0.5;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.cog4 {
+    position: fixed;
+    top: -25px;
+    left: 400px;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0.5;
+    z-index: 1000;
+    cursor: pointer;
+}
+
+.cog5 {
+    position: fixed;
+    top: 40px;
+    left: 510px;
+    font-size: 10px;
+    color: #ffffff;
+    opacity: 0.5;
+    z-index: 1000;
+    cursor: pointer;
+}
+*/
