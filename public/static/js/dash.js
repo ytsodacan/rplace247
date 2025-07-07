@@ -14,24 +14,62 @@ const RECONNECT_DELAY = 1000;
 const SANITY_CHECK_INTERVAL = 5 * 60 * 1000;
 const MAX_PIXEL_LOG_ENTRIES = 50;
 
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('DOM Content Loaded - starting dashboard initialization');
+        init();
+    });
+} else {
+    console.log('DOM already ready - starting dashboard initialization immediately');
     init();
-});
+}
 
 async function init() {
     try {
+        console.log('Initializing admin dashboard...');
+
         await setAdminUserData();
+        console.log('Admin user data set:', adminData);
+
         showDashboard();
+        console.log('Dashboard shown');
+
         setupEventListeners();
+        console.log('Event listeners set up');
+
         connectWebSocket();
+        console.log('WebSocket connection initiated');
+
         startSanityCheck();
+        console.log('Sanity check started');
+
         fetchGridUpdateStatus();
+        console.log('Grid update status fetched');
+
         renderPixelLog(pixelLogEntries);
+        console.log('Pixel log rendered');
 
         console.log('Dashboard initialization completed successfully');
     } catch (error) {
         console.error('Dashboard initialization failed:', error);
-        redirectToLogin();
+
+        // Show error in the loading screen instead of redirecting immediately
+        const loadingScreen = document.getElementById('loadingScreen');
+        if (loadingScreen) {
+            loadingScreen.innerHTML = `
+                <div class="loading-content">
+                    <p style="color: red;">Failed to initialize dashboard: ${error.message}</p>
+                    <button onclick="location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
+                    <button onclick="window.location.href='/'" style="margin-top: 10px; margin-left: 10px; padding: 8px 16px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">Go Back</button>
+                </div>
+            `;
+        }
+
+        // Only redirect after a delay to allow user to see the error
+        setTimeout(() => {
+            redirectToLogin();
+        }, 5000);
     }
 }
 
@@ -89,6 +127,12 @@ function redirectToLogin() {
 function showDashboard() {
     const dashboardContainer = document.getElementById('dashboardContainer');
 
+    // Hide loading screen
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'none';
+    }
+
     loadAdminContent();
 
     if (adminData?.username) {
@@ -102,6 +146,7 @@ function showDashboard() {
 
     if (dashboardContainer) {
         dashboardContainer.classList.add('loaded');
+        dashboardContainer.style.visibility = 'visible';
     }
 }
 

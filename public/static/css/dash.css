@@ -13,7 +13,8 @@ body {
 	max-width: 1200px;
 	margin: 0 auto;
 	padding: 20px;
-	visibility: hidden;
+	visibility: visible; /* Changed from hidden to visible as fallback */
+	min-height: 100vh;
 }
 
 .dashboard-container.loaded {
