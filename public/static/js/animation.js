@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const trailColorStartRGB = `${parseInt(starColor.slice(1, 3), 16)}, ${parseInt(starColor.slice(3, 5), 16)}, ${parseInt(starColor.slice(5, 7), 16)}`;
         const trailGradient = `linear-gradient(to left, rgba(${trailColorStartRGB}, 0.8), rgba(${trailColorStartRGB}, 0))`;
 
-        const viewportHypotenuse = Math.sqrt(window.innerWidth**2 + window.innerHeight**2);
+        const viewportHypotenuse = Math.sqrt(window.innerWidth ** 2 + window.innerHeight ** 2);
         const moveDistance = viewportHypotenuse * 2.0;
 
         starContainer.style.setProperty('--star-size', `${starSize}px`);

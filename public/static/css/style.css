@@ -1061,7 +1061,8 @@ input:checked + .slider:before {
 }
 
 /* ===== COUNTDOWN TIMER STYLES ===== */
-.countdown-timer-overlay {
+.countdown-timer-overlay,
+.timer-background-container {
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -1072,11 +1073,13 @@ input:checked + .slider:before {
 	overflow: hidden;
 }
 
-.countdown-timer-overlay.active {
+.countdown-timer-overlay.active,
+.timer-background-container {
 	pointer-events: all;
 }
 
-.countdown-timer-overlay .timer-background {
+.countdown-timer-overlay .timer-background,
+.timer-background {
 	width: 100%;
 	height: 100vh;
 	background: linear-gradient(to bottom right, #ff99cc, #ff6699);
@@ -1084,11 +1087,12 @@ input:checked + .slider:before {
 	overflow: hidden;
 }
 
-.dark .countdown-timer-overlay .timer-background {
+.dark .countdown-timer-overlay .timer-background,
+.dark .timer-background {
 	background: linear-gradient(to bottom right, #4a1a3d, #2a1529);
 }
 
-.countdown-timer-overlay .timer-container {
+.timer-container {
 	color: var(--text-primary);
 	margin: 0 auto;
 	text-align: center;
@@ -1105,7 +1109,7 @@ input:checked + .slider:before {
 	font-family: "First Coffee", serif;
 }
 
-.countdown-timer-overlay .timer-container h1 {
+.timer-container h1 {
 	font-weight: normal;
 	letter-spacing: 0.125rem;
 	text-transform: uppercase;
@@ -1113,7 +1117,7 @@ input:checked + .slider:before {
 	margin: 0 0 1rem 0;
 }
 
-.countdown-timer-overlay .timer-container ul {
+.timer-container ul {
 	list-style: none;
 	padding: 0;
 	margin: 0;
@@ -1122,7 +1126,7 @@ input:checked + .slider:before {
 	gap: 1rem;
 }
 
-.countdown-timer-overlay .timer-container li {
+.timer-container li {
 	display: inline-block;
 	font-size: 1.5em;
 	list-style-type: none;
@@ -1130,23 +1134,23 @@ input:checked + .slider:before {
 	text-transform: uppercase;
 }
 
-.countdown-timer-overlay .timer-container li span {
+.timer-container li span {
 	display: block;
 	font-size: 4.5rem;
 	font-weight: bold;
 }
 
-.countdown-timer-overlay .timer-emoji {
+.timer-emoji {
 	display: none;
 	padding: 1rem;
 }
 
-.countdown-timer-overlay .timer-emoji span {
+.timer-emoji span {
 	font-size: 4rem;
 	padding: 0 0.5rem;
 }
 
-.countdown-timer-overlay .star-container {
+.timer-background .star-container {
 	position: absolute;
 	top: var(--start-top);
 	left: var(--start-left);
@@ -1160,7 +1164,7 @@ input:checked + .slider:before {
 	align-items: center;
 }
 
-.countdown-timer-overlay .cog-container {
+.timer-background .cog-container {
 	/* Large cog, floats in place, fades in */
 	position: absolute;
 	top: var(--start-top);
@@ -1176,16 +1180,24 @@ input:checked + .slider:before {
 }
 
 @keyframes cog-rotation {
-	0% { transform: rotate(0deg); }
-	100% { transform: rotate(360deg); }
+	0% {
+		transform: rotate(0deg);
+	}
+	100% {
+		transform: rotate(360deg);
+	}
 }
 
 @keyframes cog-fade-in {
-	0% { opacity: 0; }
-	100% { opacity: 1; }
+	0% {
+		opacity: 0;
+	}
+	100% {
+		opacity: 1;
+	}
 }
 
-.countdown-timer-overlay .cog-object {
+.timer-background .cog-object {
 	/* Large, drawable cog icon (SVG, emoji, or styled div) */
 	width: 100%;
 	height: 100%;
@@ -1199,15 +1211,15 @@ input:checked + .slider:before {
 	/* If using SVG, ensure it fills the container */
 }
 
-/* Example: If you want to draw a CSS cog, you can add a .cog-shape here, or use an SVG/emoji in HTML */
+/* Example */
 /*
-.countdown-timer-overlay .cog-object.cog-shape {
+.timer-background .cog-object.cog-shape {
 	background: radial-gradient(circle at 50% 50%, #bfc9e0 70%, #8a99b8 100%);
 	border-radius: 50%;
 	box-shadow: 0 0 16px 2px #bfc9e055;
-	/* Add more complex shapes with ::before/::after for teeth if desired */
+	/* ::before/::after for more shapes if you want */
 
-.countdown-timer-overlay .star-icon {
+.timer-background .star-icon {
 	color: var(--star-color, white);
 	font-size: var(--star-size, 20px);
 	transform: rotate(-45deg);
@@ -1215,7 +1227,7 @@ input:checked + .slider:before {
 	z-index: 2;
 }
 
-.countdown-timer-overlay .star-container::before {
+.timer-background .star-container::before {
 	content: "";
 	position: absolute;
 	bottom: 50%;
@@ -1276,21 +1288,226 @@ input:checked + .slider:before {
 }
 
 @media (max-width: 768px) {
-	.countdown-timer-overlay .timer-container {
+	.timer-container {
 		width: 90vw;
 		max-width: 90vw;
 	}
 
-	.countdown-timer-overlay .timer-container h1 {
+	.timer-container h1 {
 		font-size: calc(1.5rem * 0.8);
 	}
 
-	.countdown-timer-overlay .timer-container li {
+	.timer-container li {
 		font-size: calc(1.125rem * 0.8);
 		padding: 0.5em;
 	}
 
-	.countdown-timer-overlay .timer-container li span {
+	.timer-container li span {
 		font-size: calc(3.375rem * 0.8);
+	}
+}
+
+/* ===== TIMER DEMO PAGE STYLES ===== */
+.timer .cog-container {
+	position: absolute;
+	animation: rotateCog 20s linear infinite;
+	z-index: 2;
+}
+
+@keyframes rotateCog {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+
+.timer .star {
+	position: absolute;
+	width: 4px;
+	height: 4px;
+	background: #fff;
+	border-radius: 50%;
+	animation: fallingStar 8s linear infinite;
+	z-index: 3;
+}
+
+@keyframes fallingStar {
+	0% {
+		transform: translateX(0) translateY(0);
+		opacity: 1;
+	}
+	100% {
+		transform: translateX(100vw) translateY(100vh);
+		opacity: 0;
+	}
+}
+
+.timer .settings-panel {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background: rgba(255, 255, 255, 0.9);
+	padding: 20px;
+	border-radius: 10px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+	z-index: 100;
+	min-width: 250px;
+	backdrop-filter: blur(10px);
+}
+
+.dark .timer .settings-panel {
+	background: rgba(26, 26, 46, 0.9);
+	color: var(--text-primary);
+}
+
+.timer .settings-panel h3 {
+	margin: 0 0 15px 0;
+	color: var(--text-primary);
+	font-family: 'First Coffee', cursive, sans-serif;
+	font-size: 1.2rem;
+}
+
+.timer .settings-panel label {
+	display: block;
+	margin-bottom: 5px;
+	color: var(--text-secondary);
+	font-weight: 500;
+}
+
+.timer .settings-panel input, 
+.timer .settings-panel select {
+	width: 100%;
+	padding: 8px;
+	margin-bottom: 10px;
+	border: 1px solid var(--border);
+	border-radius: 5px;
+	font-size: 14px;
+	background: var(--bg-tertiary);
+	color: var(--text-primary);
+}
+
+.timer .settings-panel input:focus,
+.timer .settings-panel select:focus {
+	outline: none;
+	border-color: var(--accent);
+}
+
+.timer .settings-panel button {
+	background: var(--accent);
+	color: white;
+	border: none;
+	padding: 10px 15px;
+	border-radius: 5px;
+	cursor: pointer;
+	font-size: 14px;
+	margin-right: 5px;
+	transition: background 0.2s ease;
+}
+
+.timer .settings-panel button:hover {
+	background: var(--accent-hover);
+}
+
+.timer .settings-toggle {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background: rgba(255, 255, 255, 0.9);
+	border: none;
+	padding: 10px;
+	border-radius: 50%;
+	cursor: pointer;
+	z-index: 101;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	transition: background 0.2s ease;
+}
+
+.dark .timer .settings-toggle {
+	background: rgba(26, 26, 46, 0.9);
+	color: var(--text-primary);
+}
+
+.timer .settings-toggle:hover {
+	background: rgba(255, 255, 255, 1);
+}
+
+.dark .timer .settings-toggle:hover {
+	background: rgba(26, 26, 46, 1);
+}
+
+.timer .settings-panel.hidden {
+	display: none;
+}
+
+/* Timer demo page specific styles */
+.timer body {
+	min-height: 100vh;
+	background: linear-gradient(135deg, #ffb6e6 0%, #ffb6e6 100%);
+	overflow: hidden;
+}
+
+.timer .container {
+	position: relative;
+	z-index: 10;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	min-height: 100vh;
+}
+
+.timer #headline {
+	font-family: 'First Coffee', cursive, sans-serif;
+	font-size: 2.2rem;
+	color: #1f2937;
+	margin-bottom: 2rem;
+	text-align: center;
+	letter-spacing: 1px;
+	text-shadow: 2px 2px 0 #fff8, 0 2px 8px #fff4;
+}
+
+.timer #countdown ul {
+	display: flex;
+	gap: 2.5rem;
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.timer #countdown li {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	font-family: 'First Coffee', cursive, sans-serif;
+	font-size: 1.3rem;
+	color: #1f2937;
+	text-shadow: 1px 1px 0 #fff8;
+}
+
+.timer #countdown li span {
+	font-size: 3.5rem;
+	font-weight: bold;
+	color: #1f2937;
+	margin-bottom: 0.2em;
+	text-shadow: 2px 2px 0 #fff8, 0 2px 8px #fff4;
+}
+
+.timer .background {
+	position: fixed;
+	inset: 0;
+	z-index: 1;
+	pointer-events: none;
+}
+
+/* Responsive tweaks for timer demo */
+@media (max-width: 768px) {
+	.timer #headline {
+		font-size: 1.2rem;
+	}
+
+	.timer #countdown li span {
+		font-size: 2.2rem;
+	}
+
+	.timer #countdown ul {
+		gap: 1.2rem;
 	}
 }
