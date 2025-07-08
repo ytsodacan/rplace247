@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 @font-face {
 	font-family: "First Coffee";
 	src: url(../fonts/First_Coffee.ttf) format("truetype");

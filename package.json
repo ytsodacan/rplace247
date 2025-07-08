@@ -4,15 +4,23 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "deploy": "wrangler deploy && node scripts/post-deploy.js",
-    "deploy:dev": "wrangler deploy --env dev && node scripts/post-deploy.js dev",
+    "build-css": "postcss ./public/static/css/style.css -o ./public/static/css/tailwind.css --watch",
+    "build-css:dev": "postcss ./public/static/css/style.css -o ./public/static/css/tailwind.css",
+    "build-css:prod": "postcss ./public/static/css/style.css -o ./public/static/css/tailwind.css",
+    "deploy": "npm run build-css:prod && wrangler deploy && node scripts/post-deploy.js",
+    "deploy:dev": "npm run build-css:prod && wrangler deploy --env dev && node scripts/post-deploy.js dev",
     "deploy:only": "wrangler deploy",
     "deploy:dev:only": "wrangler deploy --env dev",
     "dev": "wrangler dev",
     "dev:remote": "wrangler dev --env dev --remote"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@tailwindcss/postcss": "^4.1.11",
+    "@types/bun": "latest",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "postcss-cli": "^11.0.1",
+    "tailwindcss": "^4.1.11"
   },
   "peerDependencies": {
     "typescript": "^5"
