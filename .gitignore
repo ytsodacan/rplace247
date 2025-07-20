@@ -16,3 +16,5 @@ secret_deploy.sh
 yarn.lock
 tools/
 timer/*
+.idea/
+qodana.yaml

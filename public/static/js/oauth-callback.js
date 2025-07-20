@@ -1,4 +1,3 @@
-
 const BACKEND_URL = `${window.location.origin}`;
 const OAUTH_REDIRECT_URI = `${window.location.origin}/callback`;
 

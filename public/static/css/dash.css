@@ -13,7 +13,7 @@ body {
 	max-width: 1200px;
 	margin: 0 auto;
 	padding: 20px;
-	visibility: visible; /* Changed from hidden to visible as fallback */
+	visibility: hidden; /* Prevent flash of unstyled content */
 	min-height: 100vh;
 }
 
@@ -90,7 +90,10 @@ body {
 	cursor: pointer;
 	font-size: 14px;
 	font-weight: 500;
-	transition: all 0.3s ease;
+	transition:
+		background 0.3s ease,
+		transform 0.3s ease,
+		box-shadow 0.3s ease;
 	text-decoration: none;
 	display: inline-block;
 	text-align: center;
@@ -107,61 +110,57 @@ body {
 	box-shadow: var(--shadow-md);
 }
 
-.btn-danger {
-	background: linear-gradient(135deg, var(--error), #dc2626);
+.btn-danger,
+.btn-warning,
+.btn-success,
+.btn-info,
+.btn-logout {
 	color: white;
+	background: linear-gradient(
+		135deg,
+		var(--gradient-start),
+		var(--gradient-end)
+	);
 }
 
-.btn-danger:hover {
-	background: linear-gradient(135deg, #dc2626, #b91c1c);
+.btn-danger:hover,
+.btn-warning:hover,
+.btn-success:hover,
+.btn-info:hover,
+.btn-logout:hover {
+	background: linear-gradient(
+		135deg,
+		var(--gradient-end),
+		var(--gradient-start)
+	);
 	transform: translateY(-2px);
 	box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+	--gradient-start: var(--error);
+	--gradient-end: var(--error-hover, #dc2626);
 }
 
 .btn-warning {
-	background: linear-gradient(135deg, var(--warning), #d97706);
-	color: white;
-}
-
-.btn-warning:hover {
-	background: linear-gradient(135deg, #d97706, #b45309);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
+	--gradient-start: var(--warning);
+	--gradient-end: var(--warning-hover, #d97706);
 }
 
 .btn-success {
-	background: linear-gradient(135deg, var(--success), #059669);
-	color: white;
-}
-
-.btn-success:hover {
-	background: linear-gradient(135deg, #059669, #047857);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
+	--gradient-start: var(--success);
+	--gradient-end: var(--success-hover, #059669);
 }
 
 .btn-info {
-	background: linear-gradient(135deg, #06b6d4, #0891b2);
-	color: white;
-}
-
-.btn-info:hover {
-	background: linear-gradient(135deg, #0891b2, #0e7490);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
+	--gradient-start: var(--info, #06b6d4);
+	--gradient-end: var(--info-hover, #0891b2);
 }
 
 .btn-logout {
-	background: linear-gradient(135deg, var(--text-muted), #4b5563);
-	color: white;
+	--gradient-start: var(--text-muted);
+	--gradient-end: var(--text-muted-hover, #4b5563);
 }
-
-.btn-logout:hover {
-	background: linear-gradient(135deg, #4b5563, #374151);
-	transform: translateY(-2px);
-	box-shadow: var(--shadow-md);
-}
-
 .btn-icon {
 	width: 2.5rem;
 	height: 2.5rem;
@@ -174,7 +173,10 @@ body {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	transition: all 0.2s ease;
+	transition:
+		background 0.2s ease,
+		border-color 0.2s ease,
+		transform 0.2s ease;
 }
 
 .btn-icon:hover {
@@ -501,34 +503,3 @@ body {
 	}
 }
 
-.text-center {
-	text-align: center;
-}
-
-.mt-2 {
-	margin-top: 20px;
-}
-
-.mb-2 {
-	margin-bottom: 20px;
-}
-
-.hidden {
-	display: none;
-}
-
-.flex {
-	display: flex;
-}
-
-.justify-between {
-	justify-content: space-between;
-}
-
-.items-center {
-	align-items: center;
-}
-
-.gap-2 {
-	gap: 20px;
-}
